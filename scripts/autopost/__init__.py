@@ -1,0 +1,1 @@
+"""Digitalam Facebook autopost package."""

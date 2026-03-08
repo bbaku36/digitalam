@@ -1,21 +1,20 @@
-name: Facebook Auto Post
+name: Facebook Weekly Horoscope
 
 on:
   schedule:
-    # Ulaanbaatar time: 08:00, 10:00, 12:00, 14:00, 16:00, 18:00, 20:00, 22:00, 00:00
-    # UTC equivalent: 00:00, 02:00, 04:00, 06:00, 08:00, 10:00, 12:00, 14:00, 16:00
-    - cron: "0 0,2,4,6,8,10,12,14,16 * * *"
+    # Every Monday 00:05 UTC (Ulaanbaatar: Monday 08:05)
+    - cron: "5 0 * * 1"
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: facebook-autopost
+  group: facebook-weekly-horoscope
   cancel-in-progress: false
 
 jobs:
-  post:
+  weekly-horoscope:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -39,39 +38,18 @@ jobs:
       - name: Ensure state directory
         run: mkdir -p .state
 
-      - name: DNS diagnostics
-        run: |
-          python - <<'PY'
-          import socket
-          hosts = [
-              "graph.facebook.com",
-              "generativelanguage.googleapis.com",
-          ]
-          for host in hosts:
-              try:
-                  ip = socket.gethostbyname(host)
-                  print(f"[DNS OK] {host} -> {ip}")
-              except Exception as exc:
-                  print(f"[DNS WARN] {host}: {exc}")
-          PY
-
-      - name: Run autopost
+      - name: Run weekly zodiac horoscope post
         env:
           FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
           FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
           AI_PROVIDER: "gemini"
-          REQUIRE_AI_CONTENT: "1"
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_API_KEYS: "${{ secrets.GEMINI_API_KEY }},${{ secrets.GEMINI_API_KEY_2 }}"
           GEMINI_MODEL: "gemini-2.5-flash"
-          CONTENT_TIMEZONE: "Asia/Ulaanbaatar"
-          USE_TIME_SLOT_SCHEDULE: "1"
-          ENABLE_MIDNIGHT_POST: "1"
-          PIN_SCHEDULED_POSTS: "1"
-          PIN_CATEGORIES: "horoscope,daily_guidance"
           HTTP_RETRIES: "4"
           HTTP_RETRY_BACKOFF_SEC: "3"
           DRY_RUN: "0"
+          POST_CATEGORY: "weekly_horoscope"
           PYTHONUNBUFFERED: "1"
         run: python scripts/generate_and_post.py
 
