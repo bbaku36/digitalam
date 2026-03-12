@@ -76,6 +76,38 @@ jobs:
               print(f"[SECRET {status}] {name}")
           PY
 
+      - name: Facebook token diagnostics
+        env:
+          FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
+          FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import urllib.parse
+          import urllib.request
+
+          page_id = os.getenv("FACEBOOK_PAGE_ID", "").strip()
+          token = os.getenv("FACEBOOK_PAGE_ACCESS_TOKEN", "").strip()
+          if not page_id or not token:
+              print("[FB CHECK] Skipped because FACEBOOK_PAGE_ID or FACEBOOK_PAGE_ACCESS_TOKEN is missing.")
+              raise SystemExit(0)
+
+          query = urllib.parse.urlencode(
+              {
+                  "fields": "id,name",
+                  "access_token": token,
+              }
+          )
+          url = f"https://graph.facebook.com/v23.0/{page_id}?{query}"
+          try:
+              with urllib.request.urlopen(url, timeout=30) as response:
+                  payload = json.loads(response.read().decode("utf-8"))
+              print(f"[FB CHECK] Page token can access page: {payload}")
+          except Exception as exc:
+              print(f"[FB CHECK] Failed to access target page: {exc}")
+          PY
+
       - name: Run autopost
         env:
           FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
