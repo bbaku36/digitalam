@@ -67,7 +67,7 @@ jobs:
           CONTENT_TIMEZONE: "Asia/Ulaanbaatar"
           USE_TIME_SLOT_SCHEDULE: "1"
           ENABLE_MIDNIGHT_POST: "1"
-          PIN_SCHEDULED_POSTS: "1"
+          PIN_SCHEDULED_POSTS: "0"
           PIN_CATEGORIES: "horoscope,daily_guidance"
           HTTP_RETRIES: "4"
           HTTP_RETRY_BACKOFF_SEC: "3"

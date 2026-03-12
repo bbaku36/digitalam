@@ -50,7 +50,7 @@ jobs:
           HTTP_RETRY_BACKOFF_SEC: "3"
           DRY_RUN: "0"
           POST_CATEGORY: "weekly"
-          PIN_WEEKLY_POST: "1"
+          PIN_WEEKLY_POST: "0"
           PYTHONUNBUFFERED: "1"
         run: python scripts/generate_and_post.py
 
