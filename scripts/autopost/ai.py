@@ -131,6 +131,11 @@ def get_gemini_api_keys() -> list[str]:
     if single and single not in keys:
         keys.append(single)
 
+    for env_name in ("GEMINI_API_KEY_2", "GEMINI_API_KEY2"):
+        extra = os.getenv(env_name, "").strip()
+        if extra and extra not in keys:
+            keys.append(extra)
+
     return keys
 
 
@@ -750,7 +755,7 @@ def call_gemini(
     if not api_keys:
         return None, "missing_gemini_api_key"
 
-    model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip() or "gemini-2.5-flash"
+    model = os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite-preview").strip() or "gemini-3.1-flash-lite-preview"
     base_url = os.getenv("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta").strip().rstrip("/")
     payload = {
         "systemInstruction": {

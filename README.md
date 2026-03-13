@@ -35,7 +35,7 @@ This project auto-posts Mongolian Facebook content with fixed time slots:
 2. Fill `.env`:
    - `FACEBOOK_PAGE_ID`
    - `FACEBOOK_PAGE_ACCESS_TOKEN`
-   - `DEEPSEEK_API_KEY` and `AI_PROVIDER=deepseek`
+   - `GEMINI_API_KEY` and `AI_PROVIDER=gemini`
 3. Test in dry run mode:
    ```bash
    DRY_RUN=1 python3 scripts/generate_and_post.py
@@ -53,7 +53,7 @@ This project auto-posts Mongolian Facebook content with fixed time slots:
 3. Add these secrets:
    - `FACEBOOK_PAGE_ID` (required)
    - `FACEBOOK_PAGE_ACCESS_TOKEN` (required)
-   - `DEEPSEEK_API_KEY` (required for scheduled posting)
+   - `GEMINI_API_KEY` (required for scheduled posting)
 4. Ensure workflow file exists:
    - `.github/workflows/facebook-autopost.yml`
    - `.github/workflows/facebook-weekly-pin.yml` (optional weekly pinned guidance)
@@ -109,8 +109,7 @@ After that, it runs every 4 hours automatically by schedule (Ulaanbaatar 06:00 t
 - Script tracks posting history in `.state/` (e.g., `posted_items.json`, `post_meta.json`).
 - In GitHub Actions, `.state/` is cached between runs to keep rotation and pin metadata.
 - Facebook API permissions must allow posting to the target Page.
-- If `DEEPSEEK_API_KEY` is set (with `AI_PROVIDER=deepseek`), each category content is generated via `deepseek-chat`.
-- Chat requests are tuned with moderate `max_tokens` and a shorter timeout for Facebook-length posts.
-- Gemini support remains in code as an optional legacy alternative, but GitHub Actions now use DeepSeek by default.
+- If `GEMINI_API_KEY` is set (with `AI_PROVIDER=gemini`), each category content is generated via `gemini-3.1-flash-lite-preview`.
+- Gemini Flash-Lite is used for faster, cheaper Facebook-length generation; DeepSeek remains as an optional alternative.
 - Default behavior is `REQUIRE_AI_CONTENT=1`: AI generation fail үед fallback руу унахгүй, run алдаатай зогсоно.
 - Хэрэв fallback-ийг зориуд ашиглах шаардлагатай бол зөвхөн explicit байдлаар `REQUIRE_AI_CONTENT=0` гэж өгч асаана.

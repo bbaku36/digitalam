@@ -59,7 +59,9 @@ jobs:
         env:
           FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
           FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
-          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_KEY_2: ${{ secrets.GEMINI_API_KEY_2 }}
+          GEMINI_API_KEY2: ${{ secrets.GEMINI_API_KEY2 }}
         run: |
           python - <<'PY'
           import os
@@ -67,7 +69,9 @@ jobs:
           for name in (
               "FACEBOOK_PAGE_ID",
               "FACEBOOK_PAGE_ACCESS_TOKEN",
-              "DEEPSEEK_API_KEY",
+              "GEMINI_API_KEY",
+              "GEMINI_API_KEY_2",
+              "GEMINI_API_KEY2",
           ):
               value = os.getenv(name, "").strip()
               status = "OK" if value else "MISSING"
@@ -110,12 +114,13 @@ jobs:
         env:
           FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
           FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
-          AI_PROVIDER: "deepseek"
+          AI_PROVIDER: "gemini"
           REQUIRE_AI_CONTENT: "1"
-          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-          DEEPSEEK_MODEL: "deepseek-chat"
-          DEEPSEEK_TIMEOUT_SEC: "90"
-          DEEPSEEK_MAX_TOKENS: "1400"
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_KEY_2: ${{ secrets.GEMINI_API_KEY_2 }}
+          GEMINI_API_KEY2: ${{ secrets.GEMINI_API_KEY2 }}
+          GEMINI_API_KEYS: "${{ secrets.GEMINI_API_KEY }},${{ secrets.GEMINI_API_KEY_2 }},${{ secrets.GEMINI_API_KEY2 }}"
+          GEMINI_MODEL: "gemini-3.1-flash-lite-preview"
           CONTENT_TIMEZONE: "Asia/Ulaanbaatar"
           USE_TIME_SLOT_SCHEDULE: "1"
           ENABLE_MIDNIGHT_POST: "1"
