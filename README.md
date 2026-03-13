@@ -3,7 +3,7 @@
 This project auto-posts Mongolian Facebook content with fixed time slots:
 - `insight`: ухаарал болон урам өгөх үгс
 - `horoscope`: өдрийн шарын шашны зурхай (ерөнхий төлөв/үс засуулах/аян зам/үйл хийх/цээрлэх)
-- `daily_guidance`: өдрийн үйл (үс засуулах/аян замд гарах/үйл хийх/цээрлэх зүйл)
+- `daily_guidance`: өдрийн үйл (үс засуулах/аян замд гарах/үйл хийх/цээрлэх зүйл), хүсвэл гараар ажиллуулж болно
 - `mantra`: daily mantra/meditation post
 - `fact`: interesting religion/Buddhist facts
 - `messenger_cta`: Messenger дээр асуулт авах CTA пост
@@ -69,7 +69,7 @@ After that, it runs every 4 hours automatically by schedule (Ulaanbaatar 06:00 t
 - Mongolia is UTC+8, so runs at: 06:00, 10:00, 14:00, 18:00, 22:00 (Ulaanbaatar time)
 - Time slot map:
   - `06:00` -> `horoscope`
-  - `10:00` -> `daily_guidance`
+  - `10:00` -> `horoscope`
   - `14:00` -> `insight`
   - `18:00` -> `evening_insight`
   - `22:00` -> `tomorrow_prep`
@@ -86,7 +86,7 @@ After that, it runs every 4 hours automatically by schedule (Ulaanbaatar 06:00 t
   - `AUTO_CATEGORIES=insight,mantra,fact,horoscope`
 - Pin controls:
   - `PIN_POST=1` бол тухайн run-ийн постыг pin хийнэ
-  - `PIN_SCHEDULED_POSTS=1`, `PIN_CATEGORIES=horoscope,daily_guidance` үед 06:00/10:00 төрлийн постууд өдөр бүр pin rotation хийнэ
+  - `PIN_SCHEDULED_POSTS=1`, `PIN_CATEGORIES=horoscope` үед 06:00/10:00-ийн зурхайн постууд pin rotation хийж болно
   - Rotation хийхдээ тухайн category-н өмнөх pinned post-ыг unpin хийгээд шинээр pin хийнэ
   - Facebook Page нь нэг л pinned post харуулдаг тул 10:00 дээр pin хийгдэхэд 06:00-ын pin-ийг UI дээр дарж сольж харагдуулна
   - `POST_CATEGORY=weekly` үед `PIN_WEEKLY_POST=1` (default) бол автоматаар pin хийнэ

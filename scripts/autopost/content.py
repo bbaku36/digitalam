@@ -58,9 +58,9 @@ def build_insight_post_fallback() -> str:
 
 
 def build_horoscope_post_fallback() -> str:
-    now = now_in_content_timezone()
+    now = content_context_now()
     now_local = now.strftime("%Y-%m-%d")
-    seed = int(now.strftime("%Y%m%d"))
+    seed = int(now.strftime("%Y%m%d")) + now.hour
 
     general_lines = [
         "сэтгэлээ яаруу бус, төв байлгавал үйлс урагшилна.",

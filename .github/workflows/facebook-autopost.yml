@@ -120,7 +120,7 @@ jobs:
           USE_TIME_SLOT_SCHEDULE: "1"
           ENABLE_MIDNIGHT_POST: "1"
           PIN_SCHEDULED_POSTS: "0"
-          PIN_CATEGORIES: "horoscope,daily_guidance"
+          PIN_CATEGORIES: "horoscope"
           HTTP_RETRIES: "4"
           HTTP_RETRY_BACKOFF_SEC: "3"
           DRY_RUN: "0"
