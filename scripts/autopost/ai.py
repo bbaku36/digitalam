@@ -202,6 +202,19 @@ def _append_variation_seed(user_prompt: str) -> str:
     return f"{user_prompt} Unique variation seed: {seed}. Do not print this seed in output."
 
 
+def _apply_elder_voice_style(system_prompt: str, user_prompt: str) -> tuple[str, str]:
+    system_suffix = (
+        " Voice and persona: sound like a very wise Mongolian elder speaking with calm authority, "
+        "lived experience, restraint, and benevolent warmth. The writing should feel seasoned and "
+        "trustworthy, not hype-driven, salesy, childish, or generic."
+    )
+    user_suffix = (
+        " The voice must feel like a sharp, perceptive Mongolian elder giving measured guidance. "
+        "Avoid slang, clickbait, exaggerated mysticism, and empty motivational filler."
+    )
+    return f"{system_prompt}{system_suffix}", f"{user_prompt}{user_suffix}"
+
+
 def _build_mantra_repair_prompts(now_local: str, validation_reason: str, previous_text: str) -> tuple[str, str]:
     system_prompt = (
         "You are a Mongolian spiritual content writer. "
@@ -374,7 +387,10 @@ def build_prompts(category: str, now_local: str, slot_hour: int | None = None) -
     else:
         return None
 
-    return system_prompt, _append_variation_seed(apply_time_context(user_prompt, slot_hour))
+    return _apply_elder_voice_style(
+        system_prompt,
+        _append_variation_seed(apply_time_context(user_prompt, slot_hour)),
+    )
 
 
 def call_openai(

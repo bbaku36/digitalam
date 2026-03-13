@@ -25,14 +25,10 @@ CATEGORY_ALIASES = {
 }
 
 DAILY_SCHEDULE_CATEGORY_BY_HOUR = {
-    0: "goodnight",
-    8: "horoscope",
+    6: "horoscope",
     10: "daily_guidance",
-    12: "insight",
-    14: "fact",
-    16: "mantra",
-    18: "messenger_cta",
-    20: "evening_insight",
+    14: "insight",
+    18: "evening_insight",
     22: "tomorrow_prep",
 }
 

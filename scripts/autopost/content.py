@@ -41,9 +41,9 @@ def build_insight_post_fallback() -> str:
     picked = [INSIGHT_QUOTES_MN[(start + i) % len(INSIGHT_QUOTES_MN)] for i in range(lines_per_post)]
 
     lines = [
-        f"Өдрийн ухаарал ба урам өгөх үгс ({now_local})",
+        f"Өтгөсийн ухаарал, өдрийн сануулга ({now_local})",
         "",
-        "Өнөөдрийн урам, ухаарал:",
+        "Өнөөдөр сэтгэлдээ тогтоож явах 5 үг:",
         "",
     ]
     for i, quote in enumerate(picked, start=1):
@@ -51,8 +51,8 @@ def build_insight_post_fallback() -> str:
     lines.extend(
         [
             "",
-            "Танд хамгийн их хүрсэн нэг мөрийг коммент дээр үлдээгээрэй.",
-            "#ӨдрийнУхаарал #УрамӨгөхҮгс #СэтгэлийнДэмжлэг #DigitalLam",
+            "Өвгөдийн үг уртдаа биш, яг цагтаа хүрсэндээ үнэ цэнтэй байдаг.",
+            "#ӨтгөсийнУхаарал #ӨдрийнСануулга #СэтгэлийнДэмжлэг #DigitalLam",
         ]
     )
     return "\n".join(lines).strip()
@@ -61,9 +61,9 @@ def build_insight_post_fallback() -> str:
 def build_horoscope_post_fallback() -> str:
     now_local = now_in_content_timezone().strftime("%Y-%m-%d")
     lines = [
-        f"Өдрийн зурхай ({now_local})",
+        f"Өглөөний зурхай, өтгөсийн айлдвар ({now_local})",
         "",
-        "Өнөөдрийн ерөнхий энерги: тайван төлөвлөж, бага багаар хэрэгжүүлэхэд сайн өдөр.",
+        "Өнөөдрийн ерөнхий шинж: яаруу алхам бус, нам гүм ухаан илүү бүтэмж дагуулна.",
         "",
     ]
     for idx, sign in enumerate(ZODIAC_SIGNS_MN, start=1):
@@ -75,12 +75,12 @@ def build_horoscope_post_fallback() -> str:
             "суралцах ба өөрийгөө хөгжүүлэх",
             "амралт ба дотоод төвлөрөл",
         ][idx % 6]
-        lines.append(f"{idx}. {sign}: {focus} дээр жижиг алхмаа тууштай хийвэл сайн үр дүн гарна.")
+        lines.append(f"{idx}. {sign}: {focus} дээр дуу шуу багатай, бодол тэгш алхвал өлзийтэй.")
     lines.extend(
         [
             "",
-            "Орой 5 минут нам гүмд сууж, маргаашийн 1 чухал ажлаа тодорхойлоорой.",
-            "#Зурхай #ӨдрийнЗөвлөмж #DigitalLam",
+            "Өтгөсийн сануулга: орой болохоос өмнө нэг гол ажлаа гүйцээж, сэтгэлээ дэмий бүү тараагаарай.",
+            "#Зурхай #ӨглөөнийАйлдвар #МэргэнЗөвлөмж #DigitalLam",
         ]
     )
     return "\n".join(lines).strip()
@@ -195,14 +195,15 @@ def build_daily_guidance_post_fallback() -> str:
     ][(seed + 2) % 3]
 
     lines = [
-        f"Өдрийн үйл, чиглүүлэг ({date_label})",
+        f"Өдрийн үйл, өтгөсийн зөвлөмж ({date_label})",
         "",
         f"Үс засуулахад тохиромжтой өдөр: {WEEKDAY_MN[hair_idx]} — {hair_note}",
         f"Замд гарахад сайн чиг: {WEEKDAY_MN[travel_idx]} — {travel_note}",
         f"Өнөөдрийн цээрлэх зүйл: {WEEKDAY_MN[avoid_idx]} — {avoid_note}",
         "",
+        "Өвгөдийн ёсонд өдөр тутмын үйлд тэвчээр, цэгц хоёр хамгийн түрүүнд явдаг.",
         "Тэмдэглэл: Энэ нь уламжлалт, ерөнхий чиглүүлэг бөгөөд хувь хүний нөхцөлөөс хамаарч өөр байна.",
-        "#ӨдрийнҮйл #ҮсЗасуулах #ЗамдГарах #DigitalLam",
+        "#ӨдрийнҮйл #ӨтгөсийнЗөвлөмж #ҮсЗасуулах #DigitalLam",
     ]
     return "\n".join(lines).strip()
 
@@ -228,7 +229,7 @@ def build_evening_insight_post_fallback() -> str:
     picked = [EVENING_INSIGHTS_MN[(start + i) % len(EVENING_INSIGHTS_MN)] for i in range(3)]
 
     lines = [
-        f"Оройн ухаарал ({now.strftime('%Y-%m-%d')})",
+        f"Оройн ухаарал, өтгөсийн захиас ({now.strftime('%Y-%m-%d')})",
         "",
     ]
     for idx, line in enumerate(picked, start=1):
@@ -236,7 +237,8 @@ def build_evening_insight_post_fallback() -> str:
     lines.extend(
         [
             "",
-            "#ОройнУхаарал #ТайванСэтгэл #DigitalLam",
+            "Оройн бодол цэгцтэй унтвал маргаашийн зам өөрөө шулууддаг.",
+            "#ОройнУхаарал #ӨтгөсийнЗахиас #ТайванСэтгэл #DigitalLam",
         ]
     )
     return "\n".join(lines).strip()
@@ -253,12 +255,13 @@ def build_tomorrow_prep_post_fallback() -> str:
     ][(seed + 1) % 3]
 
     lines = [
-        "Маргаашийн бэлтгэл",
+        "Маргаашийн бэлтгэл, өтгөсийн үг",
         "",
         f"1 зөвлөмж: {tip}",
         f"Ерөөл: {blessing}",
         "",
-        "#МаргаашийнБэлтгэл #Ерөөл #DigitalLam",
+        "Өнөө оройгоо цэгцтэй өндөрлүүлбэл маргаашийн ажил нэгэнт талдаа орсон байдаг.",
+        "#МаргаашийнБэлтгэл #ӨтгөсийнҮг #Ерөөл #DigitalLam",
     ]
     return "\n".join(lines).strip()
 

@@ -62,22 +62,18 @@ This project auto-posts Mongolian Facebook content with fixed time slots:
 5. Run once manually:
    - `Actions -> Facebook Auto Post -> Run workflow`
 
-After that, it runs every 2 hours automatically by schedule (Ulaanbaatar 08:00 to 00:00).
+After that, it runs every 4 hours automatically by schedule (Ulaanbaatar 06:00 to 22:00).
 
 ### Schedule note
 
-- Workflow cron is UTC: `0 0,2,4,6,8,10,12,14,16 * * *`
-- Mongolia is UTC+8, so runs at: 08:00, 10:00, 12:00, 14:00, 16:00, 18:00, 20:00, 22:00, 00:00 (Ulaanbaatar time)
+- Workflow cron is UTC: `0 2,6,10,14,22 * * *`
+- Mongolia is UTC+8, so runs at: 06:00, 10:00, 14:00, 18:00, 22:00 (Ulaanbaatar time)
 - Time slot map:
-  - `08:00` -> `horoscope`
+  - `06:00` -> `horoscope`
   - `10:00` -> `daily_guidance`
-  - `12:00` -> `insight`
-  - `14:00` -> `fact`
-  - `16:00` -> `mantra`
-  - `18:00` -> `messenger_cta`
-  - `20:00` -> `evening_insight`
+  - `14:00` -> `insight`
+  - `18:00` -> `evening_insight`
   - `22:00` -> `tomorrow_prep`
-  - `00:00` -> `goodnight` (if `ENABLE_MIDNIGHT_POST=1`)
 
 ## Category control
 
@@ -85,15 +81,15 @@ After that, it runs every 2 hours automatically by schedule (Ulaanbaatar 08:00 t
 - Override category for one run:
   - `POST_CATEGORY=insight|horoscope|daily_guidance|mantra|fact|messenger_cta|evening_insight|tomorrow_prep|goodnight|weekly|weekly_horoscope`
   - Backward compatibility: `POST_CATEGORY=news` автоматаар `insight` гэж ойлгоно
-- Slot test хийхдээ: `FORCE_SLOT_HOUR=8` (0-23)
+- Slot test хийхдээ: `FORCE_SLOT_HOUR=6` (0-23)
 - Optional fallback rotation (only when schedule mode is off):
   - `USE_TIME_SLOT_SCHEDULE=0`
   - `AUTO_CATEGORIES=insight,mantra,fact,horoscope`
 - Pin controls:
   - `PIN_POST=1` бол тухайн run-ийн постыг pin хийнэ
-  - `PIN_SCHEDULED_POSTS=1`, `PIN_CATEGORIES=horoscope,daily_guidance` үед 08:00/10:00 төрлийн постууд өдөр бүр pin rotation хийнэ
+  - `PIN_SCHEDULED_POSTS=1`, `PIN_CATEGORIES=horoscope,daily_guidance` үед 06:00/10:00 төрлийн постууд өдөр бүр pin rotation хийнэ
   - Rotation хийхдээ тухайн category-н өмнөх pinned post-ыг unpin хийгээд шинээр pin хийнэ
-  - Facebook Page нь нэг л pinned post харуулдаг тул 10:00 дээр pin хийгдэхэд 08:00-ын pin-ийг UI дээр дарж сольж харагдуулна
+  - Facebook Page нь нэг л pinned post харуулдаг тул 10:00 дээр pin хийгдэхэд 06:00-ын pin-ийг UI дээр дарж сольж харагдуулна
   - `POST_CATEGORY=weekly` үед `PIN_WEEKLY_POST=1` (default) бол автоматаар pin хийнэ
   - `weekly` пост бүрт: өмнөх `weekly` pinned post-ыг unpin хийхийг оролдоод, дараа нь шинэ weekly post-ыг pin хийнэ
   - Pin/unpin-д `PIN_ACCESS_TOKEN` (эсвэл `FACEBOOK_USER_ACCESS_TOKEN`) өгвөл тэр token-оор pin хийдэг
