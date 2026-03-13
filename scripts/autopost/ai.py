@@ -10,7 +10,7 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .constants import MANTRA_LIBRARY_MN, ZODIAC_SIGNS_MN
+from .constants import MANTRA_LIBRARY_MN
 from .http import urlopen_with_retry
 
 MORNING_TERMS = [
@@ -33,7 +33,6 @@ ROOT = Path(__file__).resolve().parents[2]
 STATE_DIR = ROOT / ".state"
 GEMINI_KEY_STATE_FILE = STATE_DIR / "gemini_key_state.json"
 APPROVED_MANTRA_LINES = tuple(item[0] for item in MANTRA_LIBRARY_MN)
-APPROVED_ZODIAC_SIGNS = ", ".join(ZODIAC_SIGNS_MN)
 
 
 def _set_last_ai_status(
@@ -271,28 +270,36 @@ def build_prompts(category: str, now_local: str, slot_hour: int | None = None) -
         )
     elif category == "horoscope":
         system_prompt = (
-            "You are a Mongolian Buddhist-style daily horoscope writer. "
-            f"Write a Facebook post in Mongolian with exactly these 12 zodiac signs only: {APPROVED_ZODIAC_SIGNS}. "
-            "each sign gets 1 concise sentence. Avoid harmful or medical/legal/financial advice. "
-            "Keep tone spiritual and practical. Do not use Chinese zodiac animals or year-animal systems."
+            "You are a Mongolian Buddhist almanac-style writer. "
+            "Write a concise Facebook post in Mongolian in the style of traditional Mongolian Yellow Buddhism daily guidance. "
+            "Do not use Western zodiac signs, Chinese zodiac animals, birth years, or 12-sign readings. "
+            "Use exactly these sections in natural Mongolian prose: "
+            "1) 'Өдрийн ерөнхий төлөв', "
+            "2) 'Үс засуулах', "
+            "3) 'Аян замд гарах', "
+            "4) 'Үйл хийхэд сайн', "
+            "5) 'Цээрлэх зүйл'. "
+            "Keep it practical, restrained, and respectful. Avoid fear tactics and any medical, legal, or financial advice."
         )
         user_prompt = (
-            f"Generate today's horoscope post for {now_local}. "
-            "Include short intro, 12 sign lines using the exact sign names above in that order, "
-            "short closing, and hashtags."
+            f"Generate today's Mongolian Buddhist-style daily guidance post for {now_local}. "
+            "Open with a short title line, then provide the 5 required sections, one concise closing line, "
+            "a brief disclaimer that it is traditional general guidance, and 4-5 hashtags."
         )
     elif category == "daily_guidance":
         system_prompt = (
-            "You are a Mongolian spiritual daily guidance writer. "
+            "You are a Mongolian Buddhist daily guidance writer. "
             "Write a concise Facebook post in Mongolian with these sections: "
-            "1) 'Үс засуулахад тохиромжтой цаг/чиг', "
-            "2) 'Замд гарахад анхаарах/сайн чиг', "
-            "3) 'Өнөөдрийн цээрлэх зүйл'. "
-            "Keep it practical and traditional, avoid fear language and risky claims."
+            "1) 'Үс засуулах', "
+            "2) 'Аян замд гарах', "
+            "3) 'Үйл хийхэд сайн', "
+            "4) 'Цээрлэх зүйл'. "
+            "The style should sound like traditional Mongolian Yellow Buddhist day guidance. "
+            "Keep it practical and traditional, avoid fear language, wild mystical claims, and risky advice."
         )
         user_prompt = (
             f"Generate today's guidance post for {now_local}. "
-            "Include short intro, 3 sections, and 3-4 hashtags."
+            "Include a short intro, the 4 required sections, one closing line, a brief disclaimer that it is traditional general guidance, and 4-5 hashtags."
         )
     elif category == "mantra":
         approved_list = _approved_mantra_list_text()
@@ -366,26 +373,32 @@ def build_prompts(category: str, now_local: str, slot_hour: int | None = None) -
             "You are a Mongolian spiritual calendar writer. Create one weekly pinned post "
             "in Mongolian with these exact sections: "
             "1) 'Үс засуулахад сайн өдөр', "
-            "2) 'Хол замд гарахад сайн өдөр'. "
+            "2) 'Хол замд гарахад сайн өдөр', "
+            "3) 'Үйл хийхэд сайн өдөр'. "
             "Each section must include one weekday and one short practical note. "
-            "Add 2-3 supportive lines and hashtags. Keep it concise and respectful."
+            "The tone should match traditional Mongolian Yellow Buddhist guidance. "
+            "Add 2-3 supportive lines, a short disclaimer that it is traditional general guidance, and hashtags. Keep it concise and respectful."
         )
         user_prompt = (
             f"Generate this week's pinned guidance post for {now_local}. "
-            "Include a short disclaimer that this is traditional/general guidance."
+            "Include the 3 required weekday sections and keep the language practical and seasoned."
         )
     elif category == "weekly_horoscope":
         system_prompt = (
-            "You are a Mongolian weekly horoscope writer. "
-            f"Write a Facebook post in Mongolian for exactly these 12 zodiac signs only: {APPROVED_ZODIAC_SIGNS}. "
-            "Each sign must have 1 short weekly reading line (1-2 sentences max), practical and positive. "
-            "Avoid medical, legal, and financial guarantees or high-risk claims. "
-            "Tone should be spiritual, grounded, and respectful. Do not use Chinese zodiac animals or year-animal systems."
+            "You are a Mongolian Buddhist weekly almanac writer. "
+            "Write a weekly Facebook post in Mongolian in the style of traditional Mongolian Yellow Buddhism guidance. "
+            "Do not use Western zodiac signs, Chinese zodiac animals, birth years, or 12-sign readings. "
+            "Include these sections exactly once: "
+            "1) 'Ерөнхий чиг', "
+            "2) 'Үс засуулахад дөхөм өдөр', "
+            "3) 'Аян замд гарахад дөхөм өдөр', "
+            "4) 'Үйл хийхэд сайн өдөр', "
+            "5) 'Цээрлэх зүйл'. "
+            "Keep it concise, practical, respectful, and free of medical, legal, or financial guarantees."
         )
         user_prompt = (
-            f"Generate this week's zodiac horoscope post for {now_local}. "
-            "Include: title with week range, 12 sign lines using the exact sign names above in that order, "
-            "short closing, and 3-4 hashtags."
+            f"Generate this week's Mongolian Buddhist-style weekly guidance post for {now_local}. "
+            "Include a title with the week range, the 5 required sections, a short disclaimer that it is traditional general guidance, and 4-5 hashtags."
         )
     else:
         return None

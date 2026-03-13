@@ -2,16 +2,16 @@
 
 This project auto-posts Mongolian Facebook content with fixed time slots:
 - `insight`: ухаарал болон урам өгөх үгс
-- `horoscope`: daily zodiac-style post
-- `daily_guidance`: өдрийн үйл (үс засуулах/замд гарах/цээрлэх зүйл)
+- `horoscope`: өдрийн шарын шашны зурхай (ерөнхий төлөв/үс засуулах/аян зам/үйл хийх/цээрлэх)
+- `daily_guidance`: өдрийн үйл (үс засуулах/аян замд гарах/үйл хийх/цээрлэх зүйл)
 - `mantra`: daily mantra/meditation post
 - `fact`: interesting religion/Buddhist facts
 - `messenger_cta`: Messenger дээр асуулт авах CTA пост
 - `evening_insight`: оройн богино ухаарал
 - `tomorrow_prep`: маргаашийн бэлтгэл (1 зөвлөмж + ерөөл)
 - `goodnight`: богино амгалан шөнийн пост
-- `weekly`: 7 хоногийн зөвлөмж (үс засуулах өдөр + хол замд гарах өдөр), pin хийхэд зориулагдсан
-- `weekly_horoscope`: 7 хоногт 1 удаа 12 ордын долоо хоногийн зурхай
+- `weekly`: 7 хоногийн зөвлөмж (үс засуулах өдөр + хол замд гарах өдөр + үйл хийх өдөр), pin хийхэд зориулагдсан
+- `weekly_horoscope`: 7 хоногт 1 удаа шарын шашны хэв маягийн 7 хоногийн зурхай
 
 ## Files
 
@@ -57,7 +57,7 @@ This project auto-posts Mongolian Facebook content with fixed time slots:
 4. Ensure workflow file exists:
    - `.github/workflows/facebook-autopost.yml`
    - `.github/workflows/facebook-weekly-pin.yml` (optional weekly pinned guidance)
-   - `.github/workflows/facebook-weekly-horoscope.yml` (optional weekly zodiac post)
+   - `.github/workflows/facebook-weekly-horoscope.yml` (optional weekly Buddhist-style guidance post)
 5. Run once manually:
    - `Actions -> Facebook Auto Post -> Run workflow`
 
