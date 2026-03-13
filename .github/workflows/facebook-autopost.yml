@@ -111,7 +111,7 @@ jobs:
           FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
           FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
           AI_PROVIDER: "deepseek"
-          REQUIRE_AI_CONTENT: "0"
+          REQUIRE_AI_CONTENT: "1"
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           DEEPSEEK_MODEL: "deepseek-reasoner"
           DEEPSEEK_TIMEOUT_SEC: "120"

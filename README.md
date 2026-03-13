@@ -17,7 +17,7 @@ This project auto-posts Mongolian Facebook content with fixed time slots:
 
 - `scripts/generate_and_post.py`: CLI entrypoint
 - `scripts/autopost/runner.py`: main orchestration flow
-- `scripts/autopost/content.py`: category content builders (AI + fallback)
+- `scripts/autopost/content.py`: category content builders (AI-first, fallback code kept only as explicit opt-in)
 - `scripts/autopost/schedule.py`: timeslot/category and pin schedule rules
 - `scripts/autopost/facebook.py`: Facebook post + pin API
 - `scripts/autopost/state.py`: `.state` persistence helpers
@@ -35,7 +35,7 @@ This project auto-posts Mongolian Facebook content with fixed time slots:
 2. Fill `.env`:
    - `FACEBOOK_PAGE_ID`
    - `FACEBOOK_PAGE_ACCESS_TOKEN`
-   - (Recommended) `DEEPSEEK_API_KEY` and `AI_PROVIDER=deepseek`
+   - `DEEPSEEK_API_KEY` and `AI_PROVIDER=deepseek`
 3. Test in dry run mode:
    ```bash
    DRY_RUN=1 python3 scripts/generate_and_post.py
@@ -53,7 +53,7 @@ This project auto-posts Mongolian Facebook content with fixed time slots:
 3. Add these secrets:
    - `FACEBOOK_PAGE_ID` (required)
    - `FACEBOOK_PAGE_ACCESS_TOKEN` (required)
-   - `DEEPSEEK_API_KEY` (optional but recommended)
+   - `DEEPSEEK_API_KEY` (required for scheduled posting)
 4. Ensure workflow file exists:
    - `.github/workflows/facebook-autopost.yml`
    - `.github/workflows/facebook-weekly-pin.yml` (optional weekly pinned guidance)
@@ -81,7 +81,7 @@ After that, it runs every 4 hours automatically by schedule (Ulaanbaatar 06:00 t
   - `POST_CATEGORY=insight|horoscope|daily_guidance|mantra|fact|messenger_cta|evening_insight|tomorrow_prep|goodnight|weekly|weekly_horoscope`
   - Backward compatibility: `POST_CATEGORY=news` автоматаар `insight` гэж ойлгоно
 - Slot test хийхдээ: `FORCE_SLOT_HOUR=6` (0-23)
-- Optional fallback rotation (only when schedule mode is off):
+- Optional category rotation (only when schedule mode is off):
   - `USE_TIME_SLOT_SCHEDULE=0`
   - `AUTO_CATEGORIES=insight,mantra,fact,horoscope`
 - Pin controls:
@@ -110,7 +110,7 @@ After that, it runs every 4 hours automatically by schedule (Ulaanbaatar 06:00 t
 - In GitHub Actions, `.state/` is cached between runs to keep rotation and pin metadata.
 - Facebook API permissions must allow posting to the target Page.
 - If `DEEPSEEK_API_KEY` is set (with `AI_PROVIDER=deepseek`), each category content is generated via `deepseek-reasoner`.
-- Reasoner requests are tuned with shorter `max_tokens` and a longer timeout so Facebook-length posts don't fall back too quickly.
+- Reasoner requests are tuned with shorter `max_tokens` and a longer timeout for Facebook-length posts.
 - Gemini support remains in code as an optional legacy alternative, but GitHub Actions now use DeepSeek by default.
-- `REQUIRE_AI_CONTENT=1` бол AI generation fail үед fallback руу унахгүй, run-ийг алдаатай зогсооно.
-- Default behavior (`REQUIRE_AI_CONTENT=0`): AI keys are missing or API fails, script uses local fallback templates.
+- Default behavior is `REQUIRE_AI_CONTENT=1`: AI generation fail үед fallback руу унахгүй, run алдаатай зогсоно.
+- Хэрэв fallback-ийг зориуд ашиглах шаардлагатай бол зөвхөн explicit байдлаар `REQUIRE_AI_CONTENT=0` гэж өгч асаана.

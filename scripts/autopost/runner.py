@@ -53,9 +53,13 @@ def main() -> int:
     ai_status = get_last_ai_status()
     if bool(ai_status.get("gemini_failed", False)):
         notify_gemini_failure(category=category, ai_status=ai_status, dry_run=dry_run)
-    require_ai_content = env_flag("REQUIRE_AI_CONTENT", "0")
+    require_ai_content = env_flag("REQUIRE_AI_CONTENT", "1")
     if require_ai_content and not bool(ai_status.get("used_ai", False)):
-        reason = str(ai_status.get("gemini_failure_reason", "ai_generation_failed"))
+        reason = (
+            str(ai_status.get("deepseek_failure_reason", "")).strip()
+            or str(ai_status.get("gemini_failure_reason", "")).strip()
+            or "ai_generation_failed"
+        )
         print(f"[ERROR] REQUIRE_AI_CONTENT=1 but AI generation failed: {reason}")
         print("[ERROR] Skipping post to avoid non-AI fallback content.")
         return 1
