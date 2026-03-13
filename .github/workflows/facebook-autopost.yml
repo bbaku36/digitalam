@@ -134,7 +134,7 @@ jobs:
           GEMINI_API_KEY_2: ${{ secrets.GEMINI_API_KEY_2 }}
           GEMINI_API_KEY2: ${{ secrets.GEMINI_API_KEY2 }}
           GEMINI_API_KEYS: "${{ secrets.GEMINI_API_KEY }},${{ secrets.GEMINI_API_KEY_2 }},${{ secrets.GEMINI_API_KEY2 }}"
-          GEMINI_MODEL: "gemini-3.1-flash-lite-preview"
+          GEMINI_MODEL: "gemini-2.5-flash"
           CONTENT_TIMEZONE: "Asia/Ulaanbaatar"
           USE_TIME_SLOT_SCHEDULE: "1"
           ENABLE_MIDNIGHT_POST: "1"

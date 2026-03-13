@@ -110,8 +110,8 @@ After that, it runs every 4 hours automatically by schedule (Ulaanbaatar 06:00 t
 - Script tracks posting history in `.state/` (e.g., `posted_items.json`, `post_meta.json`).
 - In GitHub Actions, `.state/` is cached between runs to keep rotation and pin metadata.
 - Facebook API permissions must allow posting to the target Page.
-- If `GEMINI_API_KEY` is set (with `AI_PROVIDER=gemini`), each category content is generated via `gemini-3.1-flash-lite-preview`.
-- Gemini Flash-Lite is used for faster, cheaper Facebook-length generation; DeepSeek remains as an optional alternative.
+- If `GEMINI_API_KEY` is set (with `AI_PROVIDER=gemini`), each category content is generated via `gemini-2.5-flash`.
+- Gemini 2.5 Flash is used for Facebook-length generation; DeepSeek remains as an optional alternative.
 - Default behavior is `REQUIRE_AI_CONTENT=1`: AI generation fail үед fallback руу унахгүй, run алдаатай зогсоно.
 - Хэрэв fallback-ийг зориуд ашиглах шаардлагатай бол зөвхөн explicit байдлаар `REQUIRE_AI_CONTENT=0` гэж өгч асаана.
 - `06:00` болон `10:00` slot-ууд эхлээд `gogo.mn`-оос source facts татаж, дараа нь AI-аар rewrite хийдэг.
