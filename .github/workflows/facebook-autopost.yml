@@ -2,9 +2,9 @@ name: Facebook Auto Post
 
 on:
   schedule:
-    # Ulaanbaatar time: 06:00, 10:00, 14:00, 18:00, 22:00
-    # UTC cron hours (sorted): 02:00, 06:00, 10:00, 14:00, 22:00
-    - cron: "0 2,6,10,14,22 * * *"
+    # Ulaanbaatar time: 06:00, 08:00, 14:00, 18:00, 22:00
+    # UTC cron hours (sorted): 00:00, 06:00, 10:00, 14:00, 22:00
+    - cron: "0 0,6,10,14,22 * * *"
   workflow_dispatch:
 
 permissions:

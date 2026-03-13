@@ -30,7 +30,7 @@ CATEGORY_ALIASES = {
 
 DAILY_SCHEDULE_CATEGORY_BY_HOUR = {
     6: "horoscope",
-    10: "zodiac_horoscope",
+    8: "zodiac_horoscope",
     14: "insight",
     18: "fact",
     22: "tomorrow_prep",
