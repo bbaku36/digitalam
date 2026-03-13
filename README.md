@@ -109,8 +109,8 @@ After that, it runs every 4 hours automatically by schedule (Ulaanbaatar 06:00 t
 - Script tracks posting history in `.state/` (e.g., `posted_items.json`, `post_meta.json`).
 - In GitHub Actions, `.state/` is cached between runs to keep rotation and pin metadata.
 - Facebook API permissions must allow posting to the target Page.
-- If `DEEPSEEK_API_KEY` is set (with `AI_PROVIDER=deepseek`), each category content is generated via `deepseek-reasoner`.
-- Reasoner requests are tuned with shorter `max_tokens` and a longer timeout for Facebook-length posts.
+- If `DEEPSEEK_API_KEY` is set (with `AI_PROVIDER=deepseek`), each category content is generated via `deepseek-chat`.
+- Chat requests are tuned with moderate `max_tokens` and a shorter timeout for Facebook-length posts.
 - Gemini support remains in code as an optional legacy alternative, but GitHub Actions now use DeepSeek by default.
 - Default behavior is `REQUIRE_AI_CONTENT=1`: AI generation fail үед fallback руу унахгүй, run алдаатай зогсоно.
 - Хэрэв fallback-ийг зориуд ашиглах шаардлагатай бол зөвхөн explicit байдлаар `REQUIRE_AI_CONTENT=0` гэж өгч асаана.

@@ -45,9 +45,9 @@ jobs:
           AI_PROVIDER: "deepseek"
           REQUIRE_AI_CONTENT: "1"
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-          DEEPSEEK_MODEL: "deepseek-reasoner"
-          DEEPSEEK_TIMEOUT_SEC: "120"
-          DEEPSEEK_MAX_TOKENS: "1800"
+          DEEPSEEK_MODEL: "deepseek-chat"
+          DEEPSEEK_TIMEOUT_SEC: "90"
+          DEEPSEEK_MAX_TOKENS: "1400"
           HTTP_RETRIES: "4"
           HTTP_RETRY_BACKOFF_SEC: "3"
           DRY_RUN: "0"

@@ -113,9 +113,9 @@ jobs:
           AI_PROVIDER: "deepseek"
           REQUIRE_AI_CONTENT: "1"
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-          DEEPSEEK_MODEL: "deepseek-reasoner"
-          DEEPSEEK_TIMEOUT_SEC: "120"
-          DEEPSEEK_MAX_TOKENS: "1800"
+          DEEPSEEK_MODEL: "deepseek-chat"
+          DEEPSEEK_TIMEOUT_SEC: "90"
+          DEEPSEEK_MAX_TOKENS: "1400"
           CONTENT_TIMEZONE: "Asia/Ulaanbaatar"
           USE_TIME_SLOT_SCHEDULE: "1"
           ENABLE_MIDNIGHT_POST: "1"

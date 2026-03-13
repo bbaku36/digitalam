@@ -683,25 +683,25 @@ def call_deepseek(
     if not api_key:
         return None, "missing_deepseek_api_key"
 
-    model = os.getenv("DEEPSEEK_MODEL", "deepseek-reasoner").strip() or "deepseek-reasoner"
+    model = os.getenv("DEEPSEEK_MODEL", "deepseek-chat").strip() or "deepseek-chat"
     base_url = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1").strip().rstrip("/")
     url = f"{base_url}/chat/completions"
     timeout_override_raw = os.getenv(
         "DEEPSEEK_TIMEOUT_SEC",
-        "120" if model == "deepseek-reasoner" else str(timeout_sec),
+        "120" if model == "deepseek-reasoner" else "90",
     ).strip()
     max_tokens_raw = os.getenv(
         "DEEPSEEK_MAX_TOKENS",
-        "1800" if model == "deepseek-reasoner" else "1200",
+        "1800" if model == "deepseek-reasoner" else "1400",
     ).strip()
     try:
         request_timeout_sec = max(1, int(timeout_override_raw))
     except ValueError:
-        request_timeout_sec = 120 if model == "deepseek-reasoner" else timeout_sec
+        request_timeout_sec = 120 if model == "deepseek-reasoner" else 90
     try:
         max_tokens = max(256, int(max_tokens_raw))
     except ValueError:
-        max_tokens = 1800 if model == "deepseek-reasoner" else 1200
+        max_tokens = 1800 if model == "deepseek-reasoner" else 1400
 
     payload = {
         "model": model,
