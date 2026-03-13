@@ -89,7 +89,7 @@ def build_horoscope_post_fallback() -> str:
     ]
 
     lines = [
-        f"Өдрийн шарын шашны зурхай ({now_local})",
+        f"Өдрийн зурхай ({now_local})",
         "",
         f"Өдрийн ерөнхий төлөв: {general_lines[seed % len(general_lines)]}",
         "",

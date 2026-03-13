@@ -255,7 +255,7 @@ def _validate_buddhist_almanac_output(category: str, text: str) -> tuple[bool, s
             return False, f"missing_heading_{re.sub(r'[^a-z0-9]+', '_', heading.encode('ascii', 'ignore').decode('ascii')).strip('_') or 'section'}"
 
     if category in {"horoscope", "daily_guidance"}:
-        if category == "horoscope" and "шарын шашны зурхай" not in lower and "билгийн тооллын зурхай" not in lower:
+        if category == "horoscope" and "өдрийн зурхай" not in lower:
             return False, "missing_traditional_title"
         if not any(marker in lower for marker in ("үс шинээр үргээлгэх", "үс засуулбал", "үс засуулахад")):
             return False, "missing_traditional_hair_phrase"
@@ -403,7 +403,7 @@ def _build_buddhist_almanac_repair_prompts(
 
     required_formats = {
         "horoscope": (
-            "Өдрийн шарын шашны зурхай (...)\n"
+            "Өдрийн зурхай (YYYY-MM-DD)\n"
             "Өдрийн ерөнхий төлөв: Эл өдөр ...\n"
             "Үс засуулах: Үс шинээр үргээлгэх буюу засуулахад ...\n"
             "Аян замд гарах: Хол газар яваар одогсод зүүн, баруун, урд, өмнө, эсвэл хойш мөрөө гаргавал ...\n"
@@ -482,14 +482,14 @@ def build_prompts(category: str, now_local: str, slot_hour: int | None = None) -
             "'Хол газар яваар одогсод ... мөрөө гаргавал ...', 'Эл өдөр ... үйлд сайн.', "
             "'... үйл цээрлэвэл зохистой.' "
             "Do not use modern self-help or productivity language such as зорилго, төлөвлөгөө, стратеги, фокус, анхилам агаар, өргөн хүрээний аялал. "
-            "The title must explicitly say either 'Өдрийн шарын шашны зурхай' or 'Билгийн тооллын зурхай'. "
+            "The title must be exactly 'Өдрийн зурхай (YYYY-MM-DD)' with the actual local date in parentheses. "
             "The travel line must include a real direction word before 'мөрөө гаргавал', such as зүүн, баруун, урд, өмнө, or хойш. "
             "Use plain text only, no markdown emphasis. "
             "Keep it practical, restrained, and respectful. Avoid fear tactics and any medical, legal, or financial advice."
         )
         user_prompt = (
             f"Generate today's Mongolian Buddhist-style daily guidance post for {now_local}. "
-            "Open with the exact title 'Өдрийн шарын шашны зурхай'. Each section must be exactly one sentence. "
+            "Open with the exact title 'Өдрийн зурхай (YYYY-MM-DD)' using the actual local date. Each section must be exactly one sentence. "
             "The hair section must use traditional wording around 'Үс шинээр үргээлгэх буюу засуулахад ...'. "
             "The travel section must mention 'Хол газар яваар одогсод ... мөрөө гаргавал ...' and include a real direction word such as зүүн, баруун, урд, өмнө, or хойш. "
             "The action section must say 'Эл өдөр ... үйлд сайн.' and should prefer traditional religious acts such as буян ном, маань тарни, засал, ариусгах, тахилга, ерөөл. "
