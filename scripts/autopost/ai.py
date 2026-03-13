@@ -10,7 +10,7 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .constants import MANTRA_LIBRARY_MN
+from .constants import MANTRA_LIBRARY_MN, ZODIAC_SIGNS_MN
 from .http import urlopen_with_retry
 
 MORNING_TERMS = [
@@ -33,6 +33,7 @@ ROOT = Path(__file__).resolve().parents[2]
 STATE_DIR = ROOT / ".state"
 GEMINI_KEY_STATE_FILE = STATE_DIR / "gemini_key_state.json"
 APPROVED_MANTRA_LINES = tuple(item[0] for item in MANTRA_LIBRARY_MN)
+APPROVED_ZODIAC_SIGNS = ", ".join(ZODIAC_SIGNS_MN)
 
 
 def _set_last_ai_status(
@@ -271,13 +272,14 @@ def build_prompts(category: str, now_local: str, slot_hour: int | None = None) -
     elif category == "horoscope":
         system_prompt = (
             "You are a Mongolian Buddhist-style daily horoscope writer. "
-            "Write a Facebook post in Mongolian with 12 zodiac signs (Mongolian names), "
+            f"Write a Facebook post in Mongolian with exactly these 12 zodiac signs only: {APPROVED_ZODIAC_SIGNS}. "
             "each sign gets 1 concise sentence. Avoid harmful or medical/legal/financial advice. "
-            "Keep tone spiritual and practical."
+            "Keep tone spiritual and practical. Do not use Chinese zodiac animals or year-animal systems."
         )
         user_prompt = (
             f"Generate today's horoscope post for {now_local}. "
-            "Include short intro, 12 sign lines, short closing, and hashtags."
+            "Include short intro, 12 sign lines using the exact sign names above in that order, "
+            "short closing, and hashtags."
         )
     elif category == "daily_guidance":
         system_prompt = (
@@ -375,14 +377,15 @@ def build_prompts(category: str, now_local: str, slot_hour: int | None = None) -
     elif category == "weekly_horoscope":
         system_prompt = (
             "You are a Mongolian weekly horoscope writer. "
-            "Write a Facebook post in Mongolian for 12 zodiac signs using Mongolian sign names. "
+            f"Write a Facebook post in Mongolian for exactly these 12 zodiac signs only: {APPROVED_ZODIAC_SIGNS}. "
             "Each sign must have 1 short weekly reading line (1-2 sentences max), practical and positive. "
             "Avoid medical, legal, and financial guarantees or high-risk claims. "
-            "Tone should be spiritual, grounded, and respectful."
+            "Tone should be spiritual, grounded, and respectful. Do not use Chinese zodiac animals or year-animal systems."
         )
         user_prompt = (
             f"Generate this week's zodiac horoscope post for {now_local}. "
-            "Include: title with week range, 12 sign lines, short closing, and 3-4 hashtags."
+            "Include: title with week range, 12 sign lines using the exact sign names above in that order, "
+            "short closing, and 3-4 hashtags."
         )
     else:
         return None
@@ -454,18 +457,36 @@ def call_deepseek(
     if not api_key:
         return None, "missing_deepseek_api_key"
 
-    model = os.getenv("DEEPSEEK_MODEL", "deepseek-chat").strip() or "deepseek-chat"
+    model = os.getenv("DEEPSEEK_MODEL", "deepseek-reasoner").strip() or "deepseek-reasoner"
     base_url = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1").strip().rstrip("/")
     url = f"{base_url}/chat/completions"
+    timeout_override_raw = os.getenv(
+        "DEEPSEEK_TIMEOUT_SEC",
+        "120" if model == "deepseek-reasoner" else str(timeout_sec),
+    ).strip()
+    max_tokens_raw = os.getenv(
+        "DEEPSEEK_MAX_TOKENS",
+        "1800" if model == "deepseek-reasoner" else "1200",
+    ).strip()
+    try:
+        request_timeout_sec = max(1, int(timeout_override_raw))
+    except ValueError:
+        request_timeout_sec = 120 if model == "deepseek-reasoner" else timeout_sec
+    try:
+        max_tokens = max(256, int(max_tokens_raw))
+    except ValueError:
+        max_tokens = 1800 if model == "deepseek-reasoner" else 1200
 
     payload = {
         "model": model,
-        "temperature": temperature,
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ],
+        "max_tokens": max_tokens,
     }
+    if model != "deepseek-reasoner":
+        payload["temperature"] = temperature
     req = urllib.request.Request(
         url,
         data=json.dumps(payload).encode("utf-8"),
@@ -477,7 +498,7 @@ def call_deepseek(
     )
 
     try:
-        with urlopen_with_retry(req, timeout_sec, f"DeepSeek {category} post request") as response:
+        with urlopen_with_retry(req, request_timeout_sec, f"DeepSeek {category} post request") as response:
             raw = response.read().decode("utf-8")
         data = json.loads(raw)
         content = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
