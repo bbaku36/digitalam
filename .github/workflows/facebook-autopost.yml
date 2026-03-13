@@ -23,6 +23,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Node dependencies
+        run: npm ci
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -59,6 +67,8 @@ jobs:
         env:
           FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
           FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
+          PIN_ACCESS_TOKEN: ${{ secrets.PIN_ACCESS_TOKEN }}
+          FACEBOOK_USER_ACCESS_TOKEN: ${{ secrets.FACEBOOK_USER_ACCESS_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_API_KEY_2: ${{ secrets.GEMINI_API_KEY_2 }}
           GEMINI_API_KEY2: ${{ secrets.GEMINI_API_KEY2 }}
@@ -69,6 +79,8 @@ jobs:
           for name in (
               "FACEBOOK_PAGE_ID",
               "FACEBOOK_PAGE_ACCESS_TOKEN",
+              "PIN_ACCESS_TOKEN",
+              "FACEBOOK_USER_ACCESS_TOKEN",
               "GEMINI_API_KEY",
               "GEMINI_API_KEY_2",
               "GEMINI_API_KEY2",
@@ -114,6 +126,8 @@ jobs:
         env:
           FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
           FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
+          PIN_ACCESS_TOKEN: ${{ secrets.PIN_ACCESS_TOKEN }}
+          FACEBOOK_USER_ACCESS_TOKEN: ${{ secrets.FACEBOOK_USER_ACCESS_TOKEN }}
           AI_PROVIDER: "gemini"
           REQUIRE_AI_CONTENT: "1"
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -124,8 +138,8 @@ jobs:
           CONTENT_TIMEZONE: "Asia/Ulaanbaatar"
           USE_TIME_SLOT_SCHEDULE: "1"
           ENABLE_MIDNIGHT_POST: "1"
-          PIN_SCHEDULED_POSTS: "0"
-          PIN_CATEGORIES: "horoscope"
+          PIN_SCHEDULED_POSTS: "1"
+          PIN_CATEGORIES: "horoscope,zodiac_horoscope"
           HTTP_RETRIES: "4"
           HTTP_RETRY_BACKOFF_SEC: "3"
           DRY_RUN: "0"

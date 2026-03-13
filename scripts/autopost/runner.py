@@ -37,7 +37,7 @@ def main() -> int:
         or page_access_token
     )
     scheduled_pin_categories = parse_pin_categories(
-        os.getenv("PIN_CATEGORIES", "horoscope")
+        os.getenv("PIN_CATEGORIES", "horoscope,zodiac_horoscope")
     )
 
     posted = prune_state(load_state())

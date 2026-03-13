@@ -29,7 +29,7 @@ def parse_categories(value: str) -> List[str]:
 def parse_pin_categories(value: str) -> List[str]:
     parsed = [normalize_category(item) for item in value.split(",") if item.strip()]
     valid = [item for item in parsed if item in POST_CATEGORIES]
-    return valid or ["horoscope"]
+    return valid or ["horoscope", "zodiac_horoscope"]
 
 
 def select_scheduled_category() -> str | None:

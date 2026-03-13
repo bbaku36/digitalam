@@ -2,8 +2,8 @@
 
 This project auto-posts Mongolian Facebook content with fixed time slots:
 - `insight`: ухаарал болон урам өгөх үгс
-- `horoscope`: өдрийн шарын шашны зурхай (ерөнхий төлөв/үс засуулах/аян зам/үйл хийх/цээрлэх)
-- `zodiac_horoscope`: 12 ордын өдрийн зурхай
+- `horoscope`: өглөөний уламжлалт өдрийн зурхай (`Өнөөдөр ...` нээлт + ерөнхий төлөв/үс засуулах/аян зам/үйл хийх/цээрлэх)
+- `zodiac_horoscope`: 12 ордын дэлгэрэнгүй өдрийн зурхай (intro + орд бүрийн heading/date range + богино paragraph)
 - `daily_guidance`: өдрийн үйл (үс засуулах/аян замд гарах/үйл хийх/цээрлэх зүйл), хүсвэл гараар ажиллуулж болно
 - `mantra`: daily mantra/meditation post
 - `fact`: interesting religion/Buddhist facts
@@ -69,10 +69,10 @@ After that, it runs every 4 hours automatically by schedule (Ulaanbaatar 06:00 t
 - Workflow cron is UTC: `0 2,6,10,14,22 * * *`
 - Mongolia is UTC+8, so runs at: 06:00, 10:00, 14:00, 18:00, 22:00 (Ulaanbaatar time)
 - Time slot map:
-  - `06:00` -> `horoscope`
-  - `10:00` -> `zodiac_horoscope`
+- `06:00` -> `horoscope`
+- `10:00` -> `zodiac_horoscope`
   - `14:00` -> `insight`
-  - `18:00` -> `evening_insight`
+  - `18:00` -> `fact`
   - `22:00` -> `tomorrow_prep`
 
 ## Category control
@@ -87,9 +87,9 @@ After that, it runs every 4 hours automatically by schedule (Ulaanbaatar 06:00 t
   - `AUTO_CATEGORIES=insight,mantra,fact,horoscope`
 - Pin controls:
   - `PIN_POST=1` бол тухайн run-ийн постыг pin хийнэ
-  - `PIN_SCHEDULED_POSTS=1`, `PIN_CATEGORIES=horoscope` үед 06:00/10:00-ийн зурхайн постууд pin rotation хийж болно
+  - `PIN_SCHEDULED_POSTS=1`, `PIN_CATEGORIES=horoscope,zodiac_horoscope` үед 06:00 ба 10:00-ийн зурхайн постууд pin rotation хийнэ
   - Rotation хийхдээ тухайн category-н өмнөх pinned post-ыг unpin хийгээд шинээр pin хийнэ
-  - Facebook Page нь нэг л pinned post харуулдаг тул 10:00 дээр pin хийгдэхэд 06:00-ын pin-ийг UI дээр дарж сольж харагдуулна
+  - Facebook Page нь нэг л pinned post харуулдаг тул хамгийн сүүлд pin хийгдсэн 06:00 эсвэл 10:00 post нь дээрээ харагдана
   - `POST_CATEGORY=weekly` үед `PIN_WEEKLY_POST=1` (default) бол автоматаар pin хийнэ
   - `weekly` пост бүрт: өмнөх `weekly` pinned post-ыг unpin хийхийг оролдоод, дараа нь шинэ weekly post-ыг pin хийнэ
   - Pin/unpin-д `PIN_ACCESS_TOKEN` (эсвэл `FACEBOOK_USER_ACCESS_TOKEN`) өгвөл тэр token-оор pin хийдэг
@@ -114,3 +114,5 @@ After that, it runs every 4 hours automatically by schedule (Ulaanbaatar 06:00 t
 - Gemini Flash-Lite is used for faster, cheaper Facebook-length generation; DeepSeek remains as an optional alternative.
 - Default behavior is `REQUIRE_AI_CONTENT=1`: AI generation fail үед fallback руу унахгүй, run алдаатай зогсоно.
 - Хэрэв fallback-ийг зориуд ашиглах шаардлагатай бол зөвхөн explicit байдлаар `REQUIRE_AI_CONTENT=0` гэж өгч асаана.
+- `06:00` болон `10:00` slot-ууд эхлээд `gogo.mn`-оос source facts татаж, дараа нь AI-аар rewrite хийдэг.
+- Node dependency хэрэгтэй тул local болон CI дээр `npm ci` ажиллуулна.

@@ -10,7 +10,7 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .constants import MANTRA_LIBRARY_MN, ZODIAC_SIGNS_MN
+from .constants import MANTRA_LIBRARY_MN, WEEKDAY_MN, ZODIAC_SIGN_DETAILS_MN, ZODIAC_SIGNS_MN
 from .http import urlopen_with_retry
 
 MORNING_TERMS = [
@@ -86,6 +86,14 @@ TRADITIONAL_DIRECTION_WORDS = (
     "урд",
     "өмнө",
     "хойш",
+)
+DISALLOWED_AFFECTIONATE_TERMS = (
+    "хайрт",
+    "хонгор",
+    "хонгор минь",
+    "хайрт минь",
+    "хонгорхон",
+    "зүрх минь",
 )
 
 
@@ -215,8 +223,19 @@ def _approved_mantra_list_text() -> str:
     return "\n".join(f"- {line}" for line in APPROVED_MANTRA_LINES)
 
 
+def _format_mongolian_day_intro(now_local: str) -> str:
+    date_only = now_local.split()[0].strip()
+    parsed = datetime.strptime(date_only, "%Y-%m-%d")
+    return (
+        f"Өнөөдөр {parsed.year} оны {parsed.month} дугаар сарын {parsed.day}, "
+        f"{WEEKDAY_MN[parsed.weekday()]} гараг."
+    )
+
+
 def _validate_buddhist_almanac_output(category: str, text: str) -> tuple[bool, str]:
     lower = text.lower()
+    non_empty_lines = [line.strip() for line in text.splitlines() if line.strip()]
+    first_line = non_empty_lines[0].lower() if non_empty_lines else ""
     if "*" in text:
         return False, "contains_markdown_emphasis"
     for phrase in BUDDHIST_ALMANAC_BANNED_PHRASES:
@@ -256,8 +275,13 @@ def _validate_buddhist_almanac_output(category: str, text: str) -> tuple[bool, s
             return False, f"missing_heading_{re.sub(r'[^a-z0-9]+', '_', heading.encode('ascii', 'ignore').decode('ascii')).strip('_') or 'section'}"
 
     if category in {"horoscope", "daily_guidance"}:
-        if category == "horoscope" and "өдрийн зурхай" not in lower:
-            return False, "missing_traditional_title"
+        if category == "horoscope":
+            if not first_line.startswith("өнөөдөр "):
+                return False, "missing_gregorian_intro"
+            if "оны" not in first_line or "дугаар сарын" not in first_line or "гараг" not in first_line:
+                return False, "invalid_gregorian_intro"
+            if any(re.match(r"^\d+\)", line) for line in non_empty_lines):
+                return False, "numbered_sections_not_allowed"
         if not any(marker in lower for marker in ("үс шинээр үргээлгэх", "үс засуулбал", "үс засуулахад")):
             return False, "missing_traditional_hair_phrase"
         if not any(marker in lower for marker in ("хол газар", "яваар одогсод", "мөрөө гаргавал")):
@@ -280,25 +304,37 @@ def _validate_zodiac_horoscope_output(text: str) -> tuple[bool, str]:
     lower = text.lower()
     if "12 орд" not in lower and "ордын зурхай" not in lower:
         return False, "missing_zodiac_title"
-    if "өдрийн ерөнхий төлөв" not in lower:
-        return False, "missing_general_intro"
+    non_empty_lines = [line.strip() for line in text.splitlines() if line.strip()]
+    if len(non_empty_lines) < 15:
+        return False, "zodiac_post_too_short"
+    first_line = non_empty_lines[0].lower()
+    if "12 орд" not in first_line and "ордын зурхай" not in first_line:
+        return False, "missing_zodiac_title_line"
+    if any("өдрийн ерөнхий төлөв" in line.lower() for line in non_empty_lines):
+        return False, "old_zodiac_format_detected"
 
-    for sign in APPROVED_ZODIAC_SIGNS:
-        if sign.lower() not in lower:
-            return False, f"missing_sign_{sign}"
-
-    sign_lines = 0
-    for line in text.splitlines():
-        stripped = line.strip()
-        if any(stripped.startswith(f"{sign}:") for sign in APPROVED_ZODIAC_SIGNS):
-            sign_lines += 1
-    if sign_lines != len(APPROVED_ZODIAC_SIGNS):
-        return False, "invalid_sign_line_count"
+    heading_lines = 0
+    for sign, (symbol, label, date_range) in zip(APPROVED_ZODIAC_SIGNS, ZODIAC_SIGN_DETAILS_MN):
+        accepted_headings = (
+            f"{symbol} {label} ({date_range})",
+            f"{symbol} {sign} ({date_range})",
+        )
+        if not any(heading in text for heading in accepted_headings):
+            return False, f"missing_heading_{label}"
+        heading_lines += 1
+    if heading_lines != len(ZODIAC_SIGN_DETAILS_MN):
+        return False, "invalid_sign_heading_count"
 
     return True, ""
 
 
 def _validate_category_output(category: str, text: str) -> tuple[bool, str]:
+    lower = text.lower()
+    for term in DISALLOWED_AFFECTIONATE_TERMS:
+        if term in lower:
+            slug = re.sub(r"[^a-z0-9]+", "_", term.encode("ascii", "ignore").decode("ascii")).strip("_")
+            return False, f"contains_affectionate_term_{slug or 'generic'}"
+
     if category in BUDDHIST_ALMANAC_CATEGORIES:
         return _validate_buddhist_almanac_output(category, text)
     if category == "zodiac_horoscope":
@@ -355,13 +391,25 @@ def _apply_elder_voice_style(system_prompt: str, user_prompt: str) -> tuple[str,
     system_suffix = (
         " Voice and persona: sound like a very wise Mongolian elder speaking with calm authority, "
         "lived experience, restraint, and benevolent warmth. The writing should feel seasoned and "
-        "trustworthy, not hype-driven, salesy, childish, or generic."
+        "trustworthy, not hype-driven, salesy, childish, or generic. "
+        "Never address the reader with romantic or overly intimate pet names such as 'хайрт', 'хонгор', or similar language."
     )
     user_suffix = (
         " The voice must feel like a sharp, perceptive Mongolian elder giving measured guidance. "
-        "Avoid slang, clickbait, exaggerated mysticism, and empty motivational filler."
+        "Avoid slang, clickbait, exaggerated mysticism, empty motivational filler, and romantic/intimate forms of address."
     )
     return f"{system_prompt}{system_suffix}", f"{user_prompt}{user_suffix}"
+
+
+def _append_source_context(user_prompt: str, source_context: str | None) -> str:
+    if not source_context:
+        return user_prompt
+    return (
+        f"{user_prompt}\n\n"
+        "Use the following source facts as input. Preserve factual details, but rewrite in fresh wording "
+        "and do not copy long sentences verbatim.\n"
+        f"{source_context}"
+    )
 
 
 def _build_mantra_repair_prompts(now_local: str, validation_reason: str, previous_text: str) -> tuple[str, str]:
@@ -428,14 +476,20 @@ def _build_buddhist_almanac_repair_prompts(
 
     required_formats = {
         "horoscope": (
-            "Өдрийн зурхай (YYYY-MM-DD)\n"
-            "Өдрийн ерөнхий төлөв: Эл өдөр ...\n"
-            "Үс засуулах: Үс шинээр үргээлгэх буюу засуулахад ...\n"
-            "Аян замд гарах: Хол газар яваар одогсод зүүн, баруун, урд, өмнө, эсвэл хойш мөрөө гаргавал ...\n"
-            "Үйл хийхэд сайн: Эл өдөр ... үйлд сайн.\n"
-            "Цээрлэх зүйл: ... үйл цээрлэвэл зохистой.\n"
+            "Өнөөдөр 2026 оны 3 дугаар сарын 14, Бямба гараг.\n"
+            "Өнөөдрийн үс засуулах, аян зам, үйл хийхийн зурхайг доор сийрүүлье:\n"
+            "🌿 Өдрийн ерөнхий төлөв\n"
+            "Эл өдөр ...\n"
+            "✂️ Үс засуулах тохиромж\n"
+            "Үс шинээр үргээлгэх буюу засуулахад ...\n"
+            "🛣️ Аян замд гарах\n"
+            "Хол газар яваар одогсод зүүн, баруун, урд, өмнө, эсвэл хойш мөрөө гаргавал ...\n"
+            "📿 Үйл хийхэд сайн\n"
+            "Эл өдөр ... үйлд сайн.\n"
+            "⚠️ Цээрлэх зүйл\n"
+            "... үйл цээрлэвэл зохистой.\n"
             "Тэмдэглэл: Энэ нь уламжлалт, ерөнхий чиглүүлэг.\n"
-            "#ШарынШашныЗурхай #ӨдрийнЗурхай #ҮсЗасуулах #АянЗам #DigitalLam"
+            "#ӨдрийнЗурхай #ҮсЗасуулах #АянЗам #DigitalLam"
         ),
         "daily_guidance": (
             "Өдрийн үйл, шарын шашны чиглүүлэг (...)\n"
@@ -479,7 +533,12 @@ def _build_buddhist_almanac_repair_prompts(
     return system_prompt, _append_variation_seed(user_prompt)
 
 
-def build_prompts(category: str, now_local: str, slot_hour: int | None = None) -> tuple[str, str] | None:
+def build_prompts(
+    category: str,
+    now_local: str,
+    slot_hour: int | None = None,
+    source_context: str | None = None,
+) -> tuple[str, str] | None:
     if category == "insight":
         system_prompt = (
             "You are a Mongolian spiritual writer. Write a concise Facebook post with "
@@ -492,34 +551,40 @@ def build_prompts(category: str, now_local: str, slot_hour: int | None = None) -
             "Format as a short intro and numbered list."
         )
     elif category == "horoscope":
+        day_intro = _format_mongolian_day_intro(now_local)
         system_prompt = (
             "You are a Mongolian Buddhist almanac-style writer. "
             "Write a concise Facebook post in Mongolian in the style of traditional Mongolian Yellow Buddhism daily guidance. "
             "Do not use Western zodiac signs, Chinese zodiac animals, birth years, or 12-sign readings. "
-            "Use exactly these sections in natural Mongolian prose: "
-            "1) 'Өдрийн ерөнхий төлөв', "
-            "2) 'Үс засуулах', "
-            "3) 'Аян замд гарах', "
-            "4) 'Үйл хийхэд сайн', "
-            "5) 'Цээрлэх зүйл'. "
-            "Use terse, formulaic almanac diction, not explanation. "
+            "Open with a Gregorian date sentence in Mongolian, then a short lead-in sentence, then use exactly these section headings: "
+            "1) '🌿 Өдрийн ерөнхий төлөв', "
+            "2) '✂️ Үс засуулах тохиромж', "
+            "3) '🛣️ Аян замд гарах', "
+            "4) '📿 Үйл хийхэд сайн', "
+            "5) '⚠️ Цээрлэх зүйл'. "
+            "Use concise, seasoned almanac diction with a little more explanation than a one-line calendar note, but keep it compact. "
             "Prefer phrasing patterns like 'Эл өдөр ...', 'Үс шинээр үргээлгэх буюу засуулахад ...', "
             "'Хол газар яваар одогсод ... мөрөө гаргавал ...', 'Эл өдөр ... үйлд сайн.', "
             "'... үйл цээрлэвэл зохистой.' "
             "Do not use modern self-help or productivity language such as зорилго, төлөвлөгөө, стратеги, фокус, анхилам агаар, өргөн хүрээний аялал. "
-            "The title must be exactly 'Өдрийн зурхай (YYYY-MM-DD)' with the actual local date in parentheses. "
             "The travel line must include a real direction word before 'мөрөө гаргавал', such as зүүн, баруун, урд, өмнө, or хойш. "
+            "Do not number the sections. The headings should appear exactly as plain emoji-plus-title lines. "
             "Use plain text only, no markdown emphasis. "
+            "If source facts are provided, use them as the factual basis for the biligiin line, haircut meaning, travel direction, good activities, and caution items. "
             "Keep it practical, restrained, and respectful. Avoid fear tactics and any medical, legal, or financial advice."
         )
         user_prompt = (
             f"Generate today's Mongolian Buddhist-style daily guidance post for {now_local}. "
-            "Open with the exact title 'Өдрийн зурхай (YYYY-MM-DD)' using the actual local date. Each section must be exactly one sentence. "
+            f"The first line must be exactly: {day_intro} "
+            "If source facts are provided, the second non-empty line should begin with 'Билгийн тооллын' and summarize the supplied biligiin information in one sentence. "
+            "Then add the exact line 'Өнөөдрийн үс засуулах, аян зам, үйл хийхийн зурхайг доор сийрүүлье:' "
+            "Each section should contain 1-2 short sentences only. "
+            "Do not use any numbering like '1)' or '2)' before the section headings. "
             "The hair section must use traditional wording around 'Үс шинээр үргээлгэх буюу засуулахад ...'. "
             "The travel section must mention 'Хол газар яваар одогсод ... мөрөө гаргавал ...' and include a real direction word such as зүүн, баруун, урд, өмнө, or хойш. "
             "The action section must say 'Эл өдөр ... үйлд сайн.' and should prefer traditional religious acts such as буян ном, маань тарни, засал, ариусгах, тахилга, ерөөл. "
             "The caution section must end in a traditional warning such as '... үйл цээрлэвэл зохистой.' "
-            "Finish with a short plain-text disclaimer and exactly these hashtags: #ШарынШашныЗурхай #ӨдрийнЗурхай #ҮсЗасуулах #АянЗам #DigitalLam"
+            "Finish with a short plain-text disclaimer and exactly these hashtags: #ӨдрийнЗурхай #ҮсЗасуулах #АянЗам #DigitalLam"
         )
     elif category == "zodiac_horoscope":
         system_prompt = (
@@ -527,16 +592,39 @@ def build_prompts(category: str, now_local: str, slot_hour: int | None = None) -
             "Write a Facebook post in Mongolian for exactly these 12 zodiac signs only: "
             f"{', '.join(APPROVED_ZODIAC_SIGNS)}. "
             "Do not use Chinese zodiac animals or Buddhist almanac language. "
-            "Use this structure exactly: title, one short 'Өдрийн ерөнхий төлөв' line, "
-            "then 12 sign lines in the same order as listed above, one concise sentence each, "
-            "then one short disclaimer and hashtags. "
-            "Keep it concise, readable, and social-media friendly. Avoid medical, legal, or financial guarantees."
+            "Use this structure exactly: "
+            "1) title, "
+            "2) one short introductory paragraph about the day's overall astrological mood, "
+            "3) 12 sign sections in the same order as listed above, "
+            "4) one short disclaimer, "
+            "5) hashtags. "
+            "Each sign section must have a heading line with the zodiac symbol, Mongolian sign label, and date range, "
+            "followed by a short paragraph of 2-3 sentences. "
+            "The tone should feel like a polished Mongolian Facebook horoscope post: readable, specific, and slightly editorial, not mystical nonsense. "
+            "If source facts are provided, keep each sign aligned with its supplied GoGo meaning, but rewrite the wording instead of copying it. "
+            "Avoid medical, legal, or financial guarantees."
         )
         user_prompt = (
             f"Generate today's 12-sign zodiac horoscope post for {now_local}. "
             "Open with the exact title '12 ордын зурхай (YYYY-MM-DD)' using the actual local date. "
-            "Then add 'Өдрийн ерөнхий төлөв:' as one short line. "
-            "After that, include exactly these 12 sign names in this exact order, each starting a new line with 'SIGN: ...'. "
+            "Then write one short intro paragraph summarizing the day's general tendency across most signs. "
+            "After that, include exactly these 12 sign sections in this exact order and exact heading format:\n"
+            "♈ Хонины орд (3/21 - 4/19)\n"
+            "♉ Үхрийн орд (4/20 - 5/20)\n"
+            "♊ Ихрийн орд (5/21 - 6/21)\n"
+            "♋ Мэлхийн орд (6/22 - 7/22)\n"
+            "♌ Арслангийн орд (7/23 - 8/22)\n"
+            "♍ Охины орд (8/23 - 9/22)\n"
+            "♎ Жинлүүрийн орд (9/23 - 10/23)\n"
+            "♏ Хилэнцийн орд (10/24 - 11/21)\n"
+            "♐ Нумын орд (11/22 - 12/21)\n"
+            "♑ Матрын орд (12/22 - 1/19)\n"
+            "♒ Хумхын орд (1/20 - 2/18)\n"
+            "♓ Загасны орд (2/19 - 3/20)\n"
+            "Each sign must have its heading on one line and a 2-3 sentence paragraph underneath. "
+            "Do not use bullet points or numbering. "
+            "If source facts are provided, use them as the factual basis for each sign paragraph. You may keep the tone editorial and clean, but do not drift away from the supplied source meaning. "
+            "You may mention broad themes like responsibility, money, relationships, creativity, or timing, but avoid fake precision or risky claims. "
             "Finish with a short disclaimer and exactly these hashtags: #12Орд #ӨдрийнЗурхай #ОрдныЗурхай #DigitalLam"
         )
     elif category == "daily_guidance":
@@ -603,11 +691,25 @@ def build_prompts(category: str, now_local: str, slot_hour: int | None = None) -
         user_prompt = f"Generate tonight's evening insight post for {now_local}."
     elif category == "tomorrow_prep":
         system_prompt = (
-            "You are a Mongolian productivity and spiritual routine writer. "
-            "Write a short post in Mongolian with one practical tip to prepare for tomorrow "
-            "and one blessing line. Keep it concise and warm."
+            "You are a Mongolian evening routine writer. "
+            "Write a short Facebook post in Mongolian for late evening, around 22:00. "
+            "The post must sound like something to read before sleep: calm, practical, and settled. "
+            "Focus on what to prepare tonight for tomorrow, not what to do in the morning. "
+            "Use 3 short parts: "
+            "1) one line to slow down and close the day, "
+            "2) one practical line about preparing tonight for tomorrow, "
+            "3) one short blessing line. "
+            "Do not use morning greetings, morning mood, or phrases about waking up. "
+            "Avoid the words 'өглөө', 'өглөөний', 'өглөө босоод'. "
+            "Keep it concise and warm."
         )
-        user_prompt = f"Generate tonight's tomorrow-prep post for {now_local}."
+        user_prompt = (
+            f"Generate tonight's tomorrow-prep post for {now_local}. "
+            "It should read like a 22:00 post before sleep. "
+            "Mention one small thing to prepare tonight, such as clothes, notes, bag, desk, or priorities for tomorrow. "
+            "Do not mention morning, waking up, or early hours. "
+            "End with 2-3 hashtags."
+        )
     elif category == "goodnight":
         system_prompt = (
             "You are a Mongolian spiritual page writer. "
@@ -618,14 +720,18 @@ def build_prompts(category: str, now_local: str, slot_hour: int | None = None) -
     elif category == "fact":
         system_prompt = (
             "You are a Mongolian Buddhist educator writing for a Facebook page. "
-            "Write a concise post of interesting, verifiable religion/Buddhist facts. "
+            "Write a concise evening Facebook post of interesting, verifiable religion/Buddhist facts. "
+            "This post is for around 18:00, so the tone should feel like an early-evening reading post, not a morning greeting. "
             "Include 4-6 short facts, keep tone respectful and practical, and avoid "
             "controversial claims that require deep citation. Do not include medical, "
-            "legal, or financial advice. End with 3-4 hashtags."
+            "legal, or financial advice. Do not use morning greetings or the words 'өглөө', 'өглөөний', 'өглөөний мэнд'. "
+            "End with 3-4 hashtags."
         )
         user_prompt = (
             f"Generate today's interesting religion facts post for {now_local} in Mongolian. "
-            "Format as a clear intro and numbered list."
+            "It should read naturally for the 18:00 time slot. "
+            "Format as a short evening intro and a numbered list. "
+            "Do not greet the reader as if it were morning."
         )
     elif category == "weekly":
         system_prompt = (
@@ -666,7 +772,12 @@ def build_prompts(category: str, now_local: str, slot_hour: int | None = None) -
 
     return _apply_elder_voice_style(
         system_prompt,
-        _append_variation_seed(apply_time_context(user_prompt, slot_hour)),
+        _append_variation_seed(
+            _append_source_context(
+                apply_time_context(user_prompt, slot_hour),
+                source_context,
+            )
+        ),
     )
 
 
@@ -884,8 +995,9 @@ def ai_generate_generic_post(
     now_local: str,
     timeout_sec: int = 40,
     slot_hour: int | None = None,
+    source_context: str | None = None,
 ) -> str | None:
-    prompts = build_prompts(category, now_local, slot_hour)
+    prompts = build_prompts(category, now_local, slot_hour, source_context=source_context)
     if not prompts:
         _set_last_ai_status(
             used_ai=False,

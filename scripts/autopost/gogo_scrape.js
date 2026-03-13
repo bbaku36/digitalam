@@ -1,0 +1,166 @@
+#!/usr/bin/env node
+
+const { JSDOM, VirtualConsole } = require("jsdom");
+
+const MODE = process.argv[2];
+const TARGET_DATE = (process.argv[3] || "").trim();
+
+const ZODIAC_SIGNS = [
+  "Хонь",
+  "Үхэр",
+  "Ихэр",
+  "Мэлхий",
+  "Арслан",
+  "Охин",
+  "Жинлүүр",
+  "Хилэнц",
+  "Нум",
+  "Матар",
+  "Хумх",
+  "Загас",
+];
+
+function normalizeText(value) {
+  return (value || "")
+    .replace(/\u00a0/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function smallestPositive(values, fallback) {
+  const filtered = values.filter((item) => typeof item === "number" && item >= 0);
+  return filtered.length ? Math.min(...filtered) : fallback;
+}
+
+async function loadRenderedText(url) {
+  const virtualConsole = new VirtualConsole();
+  virtualConsole.on("jsdomError", () => {});
+  const dom = await JSDOM.fromURL(url, {
+    resources: "usable",
+    runScripts: "dangerously",
+    pretendToBeVisual: true,
+    virtualConsole,
+  });
+  await sleep(5000);
+  const text = normalizeText(dom.window.document.body.textContent || "");
+  dom.window.close();
+  return text;
+}
+
+function parseCalendar(text) {
+  const start = text.indexOf("Билгийн тооллын");
+  if (start < 0) {
+    throw new Error("calendar_block_not_found");
+  }
+
+  const end = smallestPositive(
+    [
+      text.indexOf("Шинэ мэдээ", start),
+      text.indexOf("Онцлох мэдээ", start),
+      text.indexOf("Тренд мэдээ", start),
+    ],
+    text.length,
+  );
+  const block = normalizeText(text.slice(start, end));
+
+  const info = {
+    source_url: "https://gogo.mn/horoscope",
+    block,
+  };
+
+  const dateMatch = block.match(
+    /Билгийн тооллын\s+(\d+)\s+(\d{4}\.\d{2}\.\d{2})\s*\/\s*([А-Яа-яӨөҮүЁё]+)\s+гараг\s+(.+?)\s+Үс засуулвал:\s*(.+?)\s+Наран ургах,\s*шингэх:\s*([0-9\.\-]+)/u,
+  );
+  if (dateMatch) {
+    info.bilgiin_day = dateMatch[1];
+    info.gregorian_date = dateMatch[2];
+    info.weekday = dateMatch[3];
+    info.lunar_day_text = normalizeText(dateMatch[4]);
+    info.haircut_omen = normalizeText(dateMatch[5]);
+    info.sun_times = normalizeText(dateMatch[6]);
+  }
+
+  const summaryMatch = block.match(/Аргын тооллын\s+.+$/u);
+  if (summaryMatch) {
+    info.summary = normalizeText(summaryMatch[0]);
+  }
+
+  const goodTimesMatch = block.match(/Өдрийн сайн цаг нь\s+(.+?)\s+болой\./u);
+  if (goodTimesMatch) {
+    info.good_times = normalizeText(goodTimesMatch[1]);
+  }
+
+  const travelMatch = block.match(/Хол газар яваар одогсод\s+(.+?)\./u);
+  if (travelMatch) {
+    info.travel = normalizeText(travelMatch[1]);
+  }
+
+  const haircutLineMatch = block.match(/Үс шинээр үргээлгэх буюу засуулахад\s+(.+?)\./u);
+  if (haircutLineMatch) {
+    info.haircut_line = normalizeText(haircutLineMatch[1]);
+  }
+
+  return info;
+}
+
+function parseWesternToday(text, targetDate) {
+  const dateSlash = targetDate.replace(/-/g, "/");
+  const stopPattern =
+    "(?:Өнөөдөр\\s+\\d{4}/\\d{2}/\\d{2}|Маргааш\\s+\\d{4}/\\d{2}/\\d{2}|Даваа\\s+\\d{4}/\\d{2}/\\d{2}|Мягмар\\s+\\d{4}/\\d{2}/\\d{2}|Лхагва\\s+\\d{4}/\\d{2}/\\d{2}|Пүрэв\\s+\\d{4}/\\d{2}/\\d{2}|Баасан\\s+\\d{4}/\\d{2}/\\d{2}|Бямба\\s+\\d{4}/\\d{2}/\\d{2}|Ням\\s+\\d{4}/\\d{2}/\\d{2}|Өнөөдөр\\s+Энэ\\s+долоо\\s+хоног|Шинэ мэдээ|Онцлох мэдээ|Тренд мэдээ)";
+  const regex = new RegExp(`Өнөөдөр\\s+${dateSlash}\\s+(.+?)(?=${stopPattern})`, "gu");
+  const paragraphs = [];
+
+  for (const match of text.matchAll(regex)) {
+    const value = normalizeText(match[1]);
+    if (value) {
+      paragraphs.push(value);
+    }
+  }
+
+  if (paragraphs.length < ZODIAC_SIGNS.length) {
+    throw new Error(`western_today_entries_too_few:${paragraphs.length}`);
+  }
+
+  const entries = ZODIAC_SIGNS.map((sign, index) => ({
+    sign,
+    text: paragraphs[index],
+  }));
+
+  return {
+    source_url: "https://gogo.mn/horoscope/western/today",
+    source_date: dateSlash,
+    entries,
+  };
+}
+
+async function main() {
+  if (!MODE) {
+    throw new Error("missing_mode");
+  }
+  if (!TARGET_DATE) {
+    throw new Error("missing_target_date");
+  }
+
+  if (MODE === "calendar") {
+    const text = await loadRenderedText("https://gogo.mn/horoscope");
+    process.stdout.write(`${JSON.stringify(parseCalendar(text), null, 2)}\n`);
+    return;
+  }
+
+  if (MODE === "western_today") {
+    const text = await loadRenderedText("https://gogo.mn/horoscope/western/today");
+    process.stdout.write(`${JSON.stringify(parseWesternToday(text, TARGET_DATE), null, 2)}\n`);
+    return;
+  }
+
+  throw new Error(`unsupported_mode:${MODE}`);
+}
+
+main().catch((error) => {
+  process.stderr.write(`${error && error.stack ? error.stack : String(error)}\n`);
+  process.exit(1);
+});

@@ -1,0 +1,15 @@
+{
+  "name": "facebookautopost",
+  "version": "1.0.0",
+  "description": "This project auto-posts Mongolian Facebook content with fixed time slots: - `insight`: ухаарал болон урам өгөх үгс - `horoscope`: өглөөний уламжлалт өдрийн зурхай (`Өнөөдөр ...` нээлт + ерөнхий төлөв/үс засуулах/аян зам/үйл хийх/цээрлэх) - `zodiac_horoscope`: 12 ордын дэлгэрэнгүй өдрийн зурхай (intro + орд бүрийн heading/date range + богино paragraph) - `daily_guidance`: өдрийн үйл (үс засуулах/аян замд гарах/үйл хийх/цээрлэх зүйл), хүсвэл гараар ажиллуулж болно - `mantra`: daily mantra/meditation post - `fact`: interesting religion/Buddhist facts - `messenger_cta`: Messenger дээр асуулт авах CTA пост - `evening_insight`: оройн богино ухаарал - `tomorrow_prep`: маргаашийн бэлтгэл (1 зөвлөмж + ерөөл) - `goodnight`: богино амгалан шөнийн пост - `weekly`: 7 хоногийн зөвлөмж (үс засуулах өдөр + хол замд гарах өдөр + үйл хийх өдөр), pin хийхэд зориулагдсан - `weekly_horoscope`: 7 хоногт 1 удаа шарын шашны хэв маягийн 7 хоногийн зурхай",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "jsdom": "^24.1.3"
+  }
+}
