@@ -33,6 +33,59 @@ ROOT = Path(__file__).resolve().parents[2]
 STATE_DIR = ROOT / ".state"
 GEMINI_KEY_STATE_FILE = STATE_DIR / "gemini_key_state.json"
 APPROVED_MANTRA_LINES = tuple(item[0] for item in MANTRA_LIBRARY_MN)
+BUDDHIST_ALMANAC_CATEGORIES = {"horoscope", "daily_guidance", "weekly", "weekly_horoscope"}
+BUDDHIST_ALMANAC_BANNED_PHRASES = (
+    "анхилам агаар",
+    "ерөнхий зорилго",
+    "дэлгэрэнгүй зүйл",
+    "өргөн хүрээний аялал",
+    "урт хугацааны төлөвлөгөө",
+    "оюун санаагаа нэгтгэх",
+    "стратеги",
+    "фокус",
+    "карьер",
+    "бизнес",
+    "контент",
+    "брэнд",
+    "төсөл",
+    "даалгавар",
+    "план",
+    "төвд мөрөө",
+    "бичиг цаас",
+    "хэлэлцээр",
+    "гэрээ хийх",
+    "засварлах",
+)
+TRADITIONAL_ALMANAC_MARKERS = (
+    "эл өдөр",
+    "үс шинээр үргээлгэх",
+    "үс засуулбал",
+    "үс засуулахад",
+    "хол газар",
+    "яваар одогсод",
+    "мөрөө гаргавал",
+    "буян номын",
+    "өлзийтэй",
+    "цээрлэвэл зохистой",
+    "тохиромжгүй",
+    "биеэ энхрийлүүштэй",
+)
+TRADITIONAL_ACTION_WORDS = (
+    "буян",
+    "ном",
+    "маань",
+    "засал",
+    "ариусгах",
+    "тахилга",
+    "ерөөл",
+)
+TRADITIONAL_DIRECTION_WORDS = (
+    "зүүн",
+    "баруун",
+    "урд",
+    "өмнө",
+    "хойш",
+)
 
 
 def _set_last_ai_status(
@@ -156,7 +209,71 @@ def _approved_mantra_list_text() -> str:
     return "\n".join(f"- {line}" for line in APPROVED_MANTRA_LINES)
 
 
+def _validate_buddhist_almanac_output(category: str, text: str) -> tuple[bool, str]:
+    lower = text.lower()
+    if "*" in text:
+        return False, "contains_markdown_emphasis"
+    for phrase in BUDDHIST_ALMANAC_BANNED_PHRASES:
+        if phrase in lower:
+            slug = re.sub(r"[^a-z0-9]+", "_", phrase.encode("ascii", "ignore").decode("ascii")).strip("_")
+            return False, f"contains_modern_phrase_{slug or 'generic'}"
+
+    heading_map = {
+        "horoscope": (
+            "өдрийн ерөнхий төлөв",
+            "үс засуулах",
+            "аян замд гарах",
+            "үйл хийхэд сайн",
+            "цээрлэх зүйл",
+        ),
+        "daily_guidance": (
+            "үс засуулах",
+            "аян замд гарах",
+            "үйл хийхэд сайн",
+            "цээрлэх зүйл",
+        ),
+        "weekly": (
+            "үс засуулахад сайн өдөр",
+            "хол замд гарахад сайн өдөр",
+            "үйл хийхэд сайн өдөр",
+        ),
+        "weekly_horoscope": (
+            "ерөнхий чиг",
+            "үс засуулахад дөхөм өдөр",
+            "аян замд гарахад дөхөм өдөр",
+            "үйл хийхэд сайн өдөр",
+            "цээрлэх зүйл",
+        ),
+    }
+    for heading in heading_map.get(category, ()):
+        if heading not in lower:
+            return False, f"missing_heading_{re.sub(r'[^a-z0-9]+', '_', heading.encode('ascii', 'ignore').decode('ascii')).strip('_') or 'section'}"
+
+    if category in {"horoscope", "daily_guidance"}:
+        if category == "horoscope" and "шарын шашны зурхай" not in lower and "билгийн тооллын зурхай" not in lower:
+            return False, "missing_traditional_title"
+        if not any(marker in lower for marker in ("үс шинээр үргээлгэх", "үс засуулбал", "үс засуулахад")):
+            return False, "missing_traditional_hair_phrase"
+        if not any(marker in lower for marker in ("хол газар", "яваар одогсод", "мөрөө гаргавал")):
+            return False, "missing_traditional_travel_phrase"
+        if "мөрөө гаргавал" in lower and not any(word in lower for word in TRADITIONAL_DIRECTION_WORDS):
+            return False, "missing_direction_for_travel_phrase"
+        if not any(word in lower for word in TRADITIONAL_ACTION_WORDS):
+            return False, "missing_traditional_action_word"
+        if not any(marker in lower for marker in ("эл өдөр", "буян номын", "өлзийтэй")):
+            return False, "missing_traditional_day_phrase"
+
+    marker_hits = sum(1 for marker in TRADITIONAL_ALMANAC_MARKERS if marker in lower)
+    if marker_hits < 3:
+        return False, "missing_traditional_almanac_tone"
+
+    return True, ""
+
+
 def _validate_category_output(category: str, text: str) -> tuple[bool, str]:
+    if category in BUDDHIST_ALMANAC_CATEGORIES:
+        return _validate_buddhist_almanac_output(category, text)
+
     if category != "mantra":
         return True, ""
 
@@ -185,6 +302,8 @@ def _validate_category_output(category: str, text: str) -> tuple[bool, str]:
 def _temperature_for_category(category: str) -> float:
     if category == "mantra":
         return 0.35
+    if category in BUDDHIST_ALMANAC_CATEGORIES:
+        return 0.25
     if category in {"insight", "evening_insight", "tomorrow_prep"}:
         return 0.65
     return 0.55
@@ -256,6 +375,80 @@ def _build_mantra_repair_prompts(now_local: str, validation_reason: str, previou
     return system_prompt, _append_variation_seed(user_prompt)
 
 
+def _build_buddhist_almanac_repair_prompts(
+    category: str,
+    now_local: str,
+    validation_reason: str,
+    previous_text: str,
+) -> tuple[str, str]:
+    system_prompt = (
+        "You are a Mongolian Buddhist almanac writer. "
+        "Return ONLY a Mongolian Facebook post in terse, formulaic Mongolian bilgiin toolol diction. "
+        "Do not use modern self-help, business, planning, coaching, or motivational language. "
+        "Prefer terse traditional phrasing such as: "
+        "'Эл өдөр ...', "
+        "'Үс шинээр үргээлгэх буюу засуулахад ...', "
+        "'Хол газар яваар одогсод ... мөрөө гаргавал ...', "
+        "'Эл өдөр ... үйлд сайн.', "
+        "'... үйл цээрлэвэл зохистой.'"
+    )
+    trimmed = previous_text.strip()
+    if len(trimmed) > 900:
+        trimmed = trimmed[:900]
+
+    required_formats = {
+        "horoscope": (
+            "Өдрийн шарын шашны зурхай (...)\n"
+            "Өдрийн ерөнхий төлөв: Эл өдөр ...\n"
+            "Үс засуулах: Үс шинээр үргээлгэх буюу засуулахад ...\n"
+            "Аян замд гарах: Хол газар яваар одогсод зүүн, баруун, урд, өмнө, эсвэл хойш мөрөө гаргавал ...\n"
+            "Үйл хийхэд сайн: Эл өдөр ... үйлд сайн.\n"
+            "Цээрлэх зүйл: ... үйл цээрлэвэл зохистой.\n"
+            "Тэмдэглэл: Энэ нь уламжлалт, ерөнхий чиглүүлэг.\n"
+            "#ШарынШашныЗурхай #ӨдрийнЗурхай #ҮсЗасуулах #АянЗам #DigitalLam"
+        ),
+        "daily_guidance": (
+            "Өдрийн үйл, шарын шашны чиглүүлэг (...)\n"
+            "Үс засуулах: Үс шинээр үргээлгэх буюу засуулахад ...\n"
+            "Аян замд гарах: Хол газар яваар одогсод зүүн, баруун, урд, өмнө, эсвэл хойш мөрөө гаргавал ...\n"
+            "Үйл хийхэд сайн: Эл өдөр ... үйлд сайн.\n"
+            "Цээрлэх зүйл: ... үйл цээрлэвэл зохистой.\n"
+            "Тэмдэглэл: Энэ нь уламжлалт, ерөнхий чиглүүлэг.\n"
+            "#ШарынШашныЗурхай #ӨдрийнЗурхай #ҮсЗасуулах #АянЗам #DigitalLam"
+        ),
+        "weekly": (
+            "7 хоногийн чиглүүлэг (...)\n"
+            "Үс засуулахад сайн өдөр: ...\n"
+            "Хол замд гарахад сайн өдөр: ...\n"
+            "Үйл хийхэд сайн өдөр: ...\n"
+            "Тэмдэглэл: Энэ нь уламжлалт, ерөнхий чиглүүлэг.\n"
+            "#ШарынШашныЗурхай ..."
+        ),
+        "weekly_horoscope": (
+            "7 хоногийн шарын шашны зурхай (...)\n"
+            "Ерөнхий чиг: Эл 7 хоногт ...\n"
+            "Үс засуулахад дөхөм өдөр: ...\n"
+            "Аян замд гарахад дөхөм өдөр: ...\n"
+            "Үйл хийхэд сайн өдөр: ...\n"
+            "Цээрлэх зүйл: ...\n"
+            "Тэмдэглэл: Энэ нь уламжлалт, ерөнхий чиглүүлэг.\n"
+            "#ШарынШашныЗурхай ..."
+        ),
+    }
+    user_prompt = (
+        f"Rewrite the {category} post for {now_local}. Previous draft failed with reason: {validation_reason}. "
+        "Use strict Mongolian Buddhist almanac phrasing. "
+        "Forbidden words and tone: зорилго, төлөвлөгөө, стратеги, фокус, анхилам агаар, өргөн хүрээний аялал, урт хугацааны төлөвлөгөө, бичиг цаас, хэлэлцээр, гэрээ хийх, coaching-style explanation. "
+        "Prefer traditional religious acts such as буян ном, маань тарни, засал, ариусгах, тахилга, ерөөл. "
+        "Keep each section to one sentence maximum and do not explain the reasoning. "
+        "Required output pattern:\n"
+        f"{required_formats.get(category, '')}\n\n"
+        "Bad previous draft (for fixing):\n"
+        f"{trimmed}\n"
+    )
+    return system_prompt, _append_variation_seed(user_prompt)
+
+
 def build_prompts(category: str, now_local: str, slot_hour: int | None = None) -> tuple[str, str] | None:
     if category == "insight":
         system_prompt = (
@@ -279,12 +472,24 @@ def build_prompts(category: str, now_local: str, slot_hour: int | None = None) -
             "3) 'Аян замд гарах', "
             "4) 'Үйл хийхэд сайн', "
             "5) 'Цээрлэх зүйл'. "
+            "Use terse, formulaic almanac diction, not explanation. "
+            "Prefer phrasing patterns like 'Эл өдөр ...', 'Үс шинээр үргээлгэх буюу засуулахад ...', "
+            "'Хол газар яваар одогсод ... мөрөө гаргавал ...', 'Эл өдөр ... үйлд сайн.', "
+            "'... үйл цээрлэвэл зохистой.' "
+            "Do not use modern self-help or productivity language such as зорилго, төлөвлөгөө, стратеги, фокус, анхилам агаар, өргөн хүрээний аялал. "
+            "The title must explicitly say either 'Өдрийн шарын шашны зурхай' or 'Билгийн тооллын зурхай'. "
+            "The travel line must include a real direction word before 'мөрөө гаргавал', such as зүүн, баруун, урд, өмнө, or хойш. "
+            "Use plain text only, no markdown emphasis. "
             "Keep it practical, restrained, and respectful. Avoid fear tactics and any medical, legal, or financial advice."
         )
         user_prompt = (
             f"Generate today's Mongolian Buddhist-style daily guidance post for {now_local}. "
-            "Open with a short title line, then provide the 5 required sections, one concise closing line, "
-            "a brief disclaimer that it is traditional general guidance, and 4-5 hashtags."
+            "Open with the exact title 'Өдрийн шарын шашны зурхай'. Each section must be exactly one sentence. "
+            "The hair section must use traditional wording around 'Үс шинээр үргээлгэх буюу засуулахад ...'. "
+            "The travel section must mention 'Хол газар яваар одогсод ... мөрөө гаргавал ...' and include a real direction word such as зүүн, баруун, урд, өмнө, or хойш. "
+            "The action section must say 'Эл өдөр ... үйлд сайн.' and should prefer traditional religious acts such as буян ном, маань тарни, засал, ариусгах, тахилга, ерөөл. "
+            "The caution section must end in a traditional warning such as '... үйл цээрлэвэл зохистой.' "
+            "Finish with a short plain-text disclaimer and exactly these hashtags: #ШарынШашныЗурхай #ӨдрийнЗурхай #ҮсЗасуулах #АянЗам #DigitalLam"
         )
     elif category == "daily_guidance":
         system_prompt = (
@@ -294,12 +499,18 @@ def build_prompts(category: str, now_local: str, slot_hour: int | None = None) -
             "2) 'Аян замд гарах', "
             "3) 'Үйл хийхэд сайн', "
             "4) 'Цээрлэх зүйл'. "
-            "The style should sound like traditional Mongolian Yellow Buddhist day guidance. "
+            "The style must sound like traditional Mongolian Yellow Buddhist day guidance. "
+            "Use terse, formulaic almanac diction. Prefer phrases such as 'Үс шинээр үргээлгэх буюу засуулахад ...', "
+            "'Хол газар яваар одогсод ... мөрөө гаргавал ...', 'Эл өдөр ... үйлд сайн.', "
+            "'... үйл цээрлэвэл зохистой.' "
+            "Action suggestions should prefer traditional religious acts such as буян ном, маань тарни, засал, ариусгах, тахилга, ерөөл. "
+            "Do not use modern self-help or productivity language such as зорилго, төлөвлөгөө, стратеги, фокус, анхилам агаар, бичиг цаас, хэлэлцээр, гэрээ хийх. "
             "Keep it practical and traditional, avoid fear language, wild mystical claims, and risky advice."
         )
         user_prompt = (
             f"Generate today's guidance post for {now_local}. "
-            "Include a short intro, the 4 required sections, one closing line, a brief disclaimer that it is traditional general guidance, and 4-5 hashtags."
+            "Include a short intro, the 4 required sections, one short closing line, a brief disclaimer that it is traditional general guidance, and 4-5 hashtags. "
+            "Each section must be one sentence maximum. The travel section should use a real direction word if it mentions 'мөрөө гаргавал'."
         )
     elif category == "mantra":
         approved_list = _approved_mantra_list_text()
@@ -376,7 +587,8 @@ def build_prompts(category: str, now_local: str, slot_hour: int | None = None) -
             "2) 'Хол замд гарахад сайн өдөр', "
             "3) 'Үйл хийхэд сайн өдөр'. "
             "Each section must include one weekday and one short practical note. "
-            "The tone should match traditional Mongolian Yellow Buddhist guidance. "
+            "The tone should match traditional Mongolian Yellow Buddhist guidance and terse bilgiin toolol diction. "
+            "Do not use modern coaching, planning, or motivational language. "
             "Add 2-3 supportive lines, a short disclaimer that it is traditional general guidance, and hashtags. Keep it concise and respectful."
         )
         user_prompt = (
@@ -394,6 +606,7 @@ def build_prompts(category: str, now_local: str, slot_hour: int | None = None) -
             "3) 'Аян замд гарахад дөхөм өдөр', "
             "4) 'Үйл хийхэд сайн өдөр', "
             "5) 'Цээрлэх зүйл'. "
+            "Use terse, formulaic almanac diction and avoid modern self-help language. "
             "Keep it concise, practical, respectful, and free of medical, legal, or financial guarantees."
         )
         user_prompt = (
@@ -752,6 +965,40 @@ def ai_generate_generic_post(
             valid, validation_reason = _validate_category_output(category, result)
             if not valid:
                 print(f"[WARN] Rejected {category} AI text due to format guard: {validation_reason}")
+                if category in BUDDHIST_ALMANAC_CATEGORIES:
+                    repair_system, repair_user = _build_buddhist_almanac_repair_prompts(
+                        category=category,
+                        now_local=now_local,
+                        validation_reason=validation_reason,
+                        previous_text=result,
+                    )
+                    retry_result, retry_reason = call_deepseek(
+                        repair_system,
+                        repair_user,
+                        category,
+                        timeout_sec,
+                        temperature,
+                    )
+                    if retry_result:
+                        retry_valid, retry_validation_reason = _validate_category_output(
+                            category,
+                            retry_result,
+                        )
+                        if retry_valid and not violates_time_of_day(retry_result, slot_hour):
+                            _set_last_ai_status(
+                                used_ai=True,
+                                provider_used="deepseek",
+                                gemini_failed=False,
+                                deepseek_failed=False,
+                                deepseek_failure_reason="",
+                            )
+                            return retry_result
+                        if not retry_valid:
+                            validation_reason = retry_validation_reason
+                        else:
+                            validation_reason = "time_guard_rejected"
+                    elif retry_reason:
+                        validation_reason = retry_reason
                 _set_last_ai_status(
                     used_ai=False,
                     provider_used="deepseek",
@@ -845,6 +1092,41 @@ def ai_generate_generic_post(
             valid, validation_reason = _validate_category_output(category, result)
             if not valid:
                 print(f"[WARN] Rejected {category} AI text due to format guard: {validation_reason}")
+                if category in BUDDHIST_ALMANAC_CATEGORIES:
+                    repair_system, repair_user = _build_buddhist_almanac_repair_prompts(
+                        category=category,
+                        now_local=now_local,
+                        validation_reason=validation_reason,
+                        previous_text=result,
+                    )
+                    retry_result, retry_reason = call_deepseek(
+                        repair_system,
+                        repair_user,
+                        category,
+                        timeout_sec,
+                        temperature,
+                    )
+                    if retry_result:
+                        retry_valid, retry_validation_reason = _validate_category_output(
+                            category,
+                            retry_result,
+                        )
+                        if retry_valid and not violates_time_of_day(retry_result, slot_hour):
+                            _set_last_ai_status(
+                                used_ai=True,
+                                provider_used="deepseek",
+                                gemini_failed=gemini_failed,
+                                gemini_failure_reason=gemini_failure_reason,
+                                deepseek_failed=False,
+                                deepseek_failure_reason="",
+                            )
+                            return retry_result
+                        if not retry_valid:
+                            validation_reason = retry_validation_reason
+                        else:
+                            validation_reason = "time_guard_rejected"
+                    elif retry_reason:
+                        validation_reason = retry_reason
                 deepseek_failed = True
                 deepseek_failure_reason = validation_reason
                 result = None
