@@ -10,7 +10,7 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .constants import MANTRA_LIBRARY_MN
+from .constants import MANTRA_LIBRARY_MN, ZODIAC_SIGNS_MN
 from .http import urlopen_with_retry
 
 MORNING_TERMS = [
@@ -33,6 +33,7 @@ ROOT = Path(__file__).resolve().parents[2]
 STATE_DIR = ROOT / ".state"
 GEMINI_KEY_STATE_FILE = STATE_DIR / "gemini_key_state.json"
 APPROVED_MANTRA_LINES = tuple(item[0] for item in MANTRA_LIBRARY_MN)
+APPROVED_ZODIAC_SIGNS = tuple(ZODIAC_SIGNS_MN)
 BUDDHIST_ALMANAC_CATEGORIES = {"horoscope", "daily_guidance", "weekly", "weekly_horoscope"}
 BUDDHIST_ALMANAC_BANNED_PHRASES = (
     "анхилам агаар",
@@ -275,9 +276,33 @@ def _validate_buddhist_almanac_output(category: str, text: str) -> tuple[bool, s
     return True, ""
 
 
+def _validate_zodiac_horoscope_output(text: str) -> tuple[bool, str]:
+    lower = text.lower()
+    if "12 орд" not in lower and "ордын зурхай" not in lower:
+        return False, "missing_zodiac_title"
+    if "өдрийн ерөнхий төлөв" not in lower:
+        return False, "missing_general_intro"
+
+    for sign in APPROVED_ZODIAC_SIGNS:
+        if sign.lower() not in lower:
+            return False, f"missing_sign_{sign}"
+
+    sign_lines = 0
+    for line in text.splitlines():
+        stripped = line.strip()
+        if any(stripped.startswith(f"{sign}:") for sign in APPROVED_ZODIAC_SIGNS):
+            sign_lines += 1
+    if sign_lines != len(APPROVED_ZODIAC_SIGNS):
+        return False, "invalid_sign_line_count"
+
+    return True, ""
+
+
 def _validate_category_output(category: str, text: str) -> tuple[bool, str]:
     if category in BUDDHIST_ALMANAC_CATEGORIES:
         return _validate_buddhist_almanac_output(category, text)
+    if category == "zodiac_horoscope":
+        return _validate_zodiac_horoscope_output(text)
 
     if category != "mantra":
         return True, ""
@@ -495,6 +520,24 @@ def build_prompts(category: str, now_local: str, slot_hour: int | None = None) -
             "The action section must say 'Эл өдөр ... үйлд сайн.' and should prefer traditional religious acts such as буян ном, маань тарни, засал, ариусгах, тахилга, ерөөл. "
             "The caution section must end in a traditional warning such as '... үйл цээрлэвэл зохистой.' "
             "Finish with a short plain-text disclaimer and exactly these hashtags: #ШарынШашныЗурхай #ӨдрийнЗурхай #ҮсЗасуулах #АянЗам #DigitalLam"
+        )
+    elif category == "zodiac_horoscope":
+        system_prompt = (
+            "You are a Mongolian daily zodiac horoscope writer. "
+            "Write a Facebook post in Mongolian for exactly these 12 zodiac signs only: "
+            f"{', '.join(APPROVED_ZODIAC_SIGNS)}. "
+            "Do not use Chinese zodiac animals or Buddhist almanac language. "
+            "Use this structure exactly: title, one short 'Өдрийн ерөнхий төлөв' line, "
+            "then 12 sign lines in the same order as listed above, one concise sentence each, "
+            "then one short disclaimer and hashtags. "
+            "Keep it concise, readable, and social-media friendly. Avoid medical, legal, or financial guarantees."
+        )
+        user_prompt = (
+            f"Generate today's 12-sign zodiac horoscope post for {now_local}. "
+            "Open with the exact title '12 ордын зурхай (YYYY-MM-DD)' using the actual local date. "
+            "Then add 'Өдрийн ерөнхий төлөв:' as one short line. "
+            "After that, include exactly these 12 sign names in this exact order, each starting a new line with 'SIGN: ...'. "
+            "Finish with a short disclaimer and exactly these hashtags: #12Орд #ӨдрийнЗурхай #ОрдныЗурхай #DigitalLam"
         )
     elif category == "daily_guidance":
         system_prompt = (

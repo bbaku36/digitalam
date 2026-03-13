@@ -3,6 +3,7 @@
 This project auto-posts Mongolian Facebook content with fixed time slots:
 - `insight`: ухаарал болон урам өгөх үгс
 - `horoscope`: өдрийн шарын шашны зурхай (ерөнхий төлөв/үс засуулах/аян зам/үйл хийх/цээрлэх)
+- `zodiac_horoscope`: 12 ордын өдрийн зурхай
 - `daily_guidance`: өдрийн үйл (үс засуулах/аян замд гарах/үйл хийх/цээрлэх зүйл), хүсвэл гараар ажиллуулж болно
 - `mantra`: daily mantra/meditation post
 - `fact`: interesting religion/Buddhist facts
@@ -69,7 +70,7 @@ After that, it runs every 4 hours automatically by schedule (Ulaanbaatar 06:00 t
 - Mongolia is UTC+8, so runs at: 06:00, 10:00, 14:00, 18:00, 22:00 (Ulaanbaatar time)
 - Time slot map:
   - `06:00` -> `horoscope`
-  - `10:00` -> `horoscope`
+  - `10:00` -> `zodiac_horoscope`
   - `14:00` -> `insight`
   - `18:00` -> `evening_insight`
   - `22:00` -> `tomorrow_prep`
@@ -78,7 +79,7 @@ After that, it runs every 4 hours automatically by schedule (Ulaanbaatar 06:00 t
 
 - Default mode: schedule-based category (`USE_TIME_SLOT_SCHEDULE=1`)
 - Override category for one run:
-  - `POST_CATEGORY=insight|horoscope|daily_guidance|mantra|fact|messenger_cta|evening_insight|tomorrow_prep|goodnight|weekly|weekly_horoscope`
+  - `POST_CATEGORY=insight|horoscope|zodiac_horoscope|daily_guidance|mantra|fact|messenger_cta|evening_insight|tomorrow_prep|goodnight|weekly|weekly_horoscope`
   - Backward compatibility: `POST_CATEGORY=news` автоматаар `insight` гэж ойлгоно
 - Slot test хийхдээ: `FORCE_SLOT_HOUR=6` (0-23)
 - Optional category rotation (only when schedule mode is off):

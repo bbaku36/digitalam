@@ -3,6 +3,7 @@
 POST_CATEGORIES = (
     "insight",
     "horoscope",
+    "zodiac_horoscope",
     "mantra",
     "fact",
     "weekly",
@@ -16,6 +17,9 @@ POST_CATEGORIES = (
 
 CATEGORY_ALIASES = {
     "news": "insight",
+    "zodiac": "zodiac_horoscope",
+    "daily-zodiac": "zodiac_horoscope",
+    "daily_zodiac": "zodiac_horoscope",
     "weekly-horoscope": "weekly_horoscope",
     "weeklyhoroscope": "weekly_horoscope",
     "cta": "messenger_cta",
@@ -26,7 +30,7 @@ CATEGORY_ALIASES = {
 
 DAILY_SCHEDULE_CATEGORY_BY_HOUR = {
     6: "horoscope",
-    10: "horoscope",
+    10: "zodiac_horoscope",
     14: "insight",
     18: "evening_insight",
     22: "tomorrow_prep",

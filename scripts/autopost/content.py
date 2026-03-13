@@ -13,6 +13,7 @@ from .constants import (
     RELIGIOUS_FACTS_MN,
     TOMORROW_PREP_TIPS_MN,
     WEEKDAY_MN,
+    ZODIAC_SIGNS_MN,
 )
 from .env import now_in_content_timezone
 
@@ -102,6 +103,47 @@ def build_horoscope_post_fallback() -> str:
         "Тэмдэглэл: Энэ нь уламжлалт шарын шашны хэв маягаар өгсөн ерөнхий чиглүүлэг бөгөөд хувь хүний нөхцөлөөс хамаарч өөр байна.",
         "#ШарынШашныЗурхай #ӨдрийнЗурхай #ҮсЗасуулах #АянЗам #DigitalLam",
     ]
+    return "\n".join(lines).strip()
+
+
+def build_zodiac_horoscope_post_fallback() -> str:
+    now = content_context_now()
+    now_local = now.strftime("%Y-%m-%d")
+    seed = int(now.strftime("%Y%m%d")) + now.hour
+    focus_topics = [
+        "ажил үйлс",
+        "гэр бүл, харилцаа",
+        "санхүү, зарлага",
+        "сэтгэл, төвлөрөл",
+        "эрч хүч, амралт",
+        "суралцах, мэдлэг",
+    ]
+    action_tips = [
+        "яаруу шийдвэрээс зайлсхийвэл зохино.",
+        "нэг гол ажлаа барьж явбал өлзийтэй.",
+        "ам нээхээсээ өмнө бодвол сайн.",
+        "илүү зардал гаргахгүй байвал зохистой.",
+        "тайван, цэгцтэй явбал бүтэмжтэй.",
+        "ахмадын үгийг сонсвол тус болно.",
+    ]
+
+    lines = [
+        f"12 ордын зурхай ({now_local})",
+        "",
+        "Өнөөдрийн ерөнхий төлөв: жижиг боловч зөв алхам бүр үр өгөөжтэй байна.",
+        "",
+    ]
+    for idx, sign in enumerate(ZODIAC_SIGNS_MN):
+        focus = focus_topics[(seed + idx) % len(focus_topics)]
+        action = action_tips[(seed * 2 + idx) % len(action_tips)]
+        lines.append(f"{sign}: {focus} дээр анхаарвал сайн, {action}")
+    lines.extend(
+        [
+            "",
+            "Тэмдэглэл: Энэ нь ордын ерөнхий зурхай бөгөөд хувь хүний нөхцөлөөс хамаарч өөр байна.",
+            "#12Орд #ӨдрийнЗурхай #ОрдныЗурхай #DigitalLam",
+        ]
+    )
     return "\n".join(lines).strip()
 
 
@@ -381,6 +423,8 @@ def build_category_post(category: str) -> str:
         return build_insight_post_fallback()
     if category == "horoscope":
         return build_horoscope_post_fallback()
+    if category == "zodiac_horoscope":
+        return build_zodiac_horoscope_post_fallback()
     if category == "daily_guidance":
         return build_daily_guidance_post_fallback()
     if category == "mantra":
