@@ -14,6 +14,14 @@ from .constants import (
 )
 from .env import env_flag, now_in_content_timezone
 
+SCHEDULE_CATEGORY_BY_CRON = {
+    "0 22 * * *": "horoscope",
+    "0 0 * * *": "zodiac_horoscope",
+    "0 6 * * *": "insight",
+    "0 10 * * *": "fact",
+    "0 14 * * *": "tomorrow_prep",
+}
+
 
 def normalize_category(value: str) -> str:
     raw = (value or "").strip().lower()
@@ -47,6 +55,17 @@ def select_scheduled_category() -> str | None:
                 return selected
         except ValueError:
             pass
+
+    trigger_cron = (
+        os.getenv("TRIGGER_SCHEDULE_CRON", "").strip()
+        or os.getenv("GITHUB_EVENT_SCHEDULE", "").strip()
+    )
+    if trigger_cron:
+        selected = SCHEDULE_CATEGORY_BY_CRON.get(trigger_cron)
+        if selected == "goodnight" and not env_flag("ENABLE_MIDNIGHT_POST", "1"):
+            return SCHEDULE_SKIP_CATEGORY
+        if selected:
+            return selected
 
     now_local = now_in_content_timezone()
     selected = DAILY_SCHEDULE_CATEGORY_BY_HOUR.get(now_local.hour)

@@ -2,9 +2,16 @@ name: Facebook Auto Post
 
 on:
   schedule:
-    # Ulaanbaatar time: 06:00, 08:00, 14:00, 18:00, 22:00
-    # UTC cron hours (sorted): 00:00, 06:00, 10:00, 14:00, 22:00
-    - cron: "0 0,6,10,14,22 * * *"
+    # Ulaanbaatar 08:00
+    - cron: "0 0 * * *"
+    # Ulaanbaatar 14:00
+    - cron: "0 6 * * *"
+    # Ulaanbaatar 18:00
+    - cron: "0 10 * * *"
+    # Ulaanbaatar 22:00
+    - cron: "0 14 * * *"
+    # Ulaanbaatar 06:00
+    - cron: "0 22 * * *"
   workflow_dispatch:
 
 permissions:
@@ -137,6 +144,7 @@ jobs:
           GEMINI_MODEL: "gemini-2.5-flash"
           CONTENT_TIMEZONE: "Asia/Ulaanbaatar"
           USE_TIME_SLOT_SCHEDULE: "1"
+          TRIGGER_SCHEDULE_CRON: "${{ github.event.schedule }}"
           ENABLE_MIDNIGHT_POST: "1"
           PIN_SCHEDULED_POSTS: "1"
           PIN_CATEGORIES: "horoscope,zodiac_horoscope"

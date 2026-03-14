@@ -66,7 +66,12 @@ After that, it runs automatically by schedule (Ulaanbaatar 06:00, 08:00, 14:00, 
 
 ### Schedule note
 
-- Workflow cron is UTC: `0 0,6,10,14,22 * * *`
+- Workflow cron is split into separate UTC schedules:
+  - `0 22 * * *` -> `06:00`
+  - `0 0 * * *` -> `08:00`
+  - `0 6 * * *` -> `14:00`
+  - `0 10 * * *` -> `18:00`
+  - `0 14 * * *` -> `22:00`
 - Mongolia is UTC+8, so runs at: 06:00, 08:00, 14:00, 18:00, 22:00 (Ulaanbaatar time)
 - Time slot map:
 - `06:00` -> `horoscope`
@@ -74,6 +79,7 @@ After that, it runs automatically by schedule (Ulaanbaatar 06:00, 08:00, 14:00, 
   - `14:00` -> `insight`
   - `18:00` -> `fact`
   - `22:00` -> `tomorrow_prep`
+- Scheduled run хоцорч эхэлсэн ч `github.event.schedule`-оор нь зөв category сонгодог.
 
 ## Category control
 
