@@ -61,6 +61,8 @@ This project auto-posts Mongolian Facebook content with fixed time slots:
    - `.github/workflows/facebook-weekly-horoscope.yml` (optional weekly Buddhist-style guidance post)
 5. Run once manually:
    - `Actions -> Facebook Auto Post -> Run workflow`
+   - `force_slot_hour=8` өгвөл `08:00`-ийн `zodiac_horoscope` post-ийг шууд ажиллуулж болно
+   - `post_category=zodiac_horoscope` өгвөл category-г шууд override хийж болно
 
 After that, it runs automatically by schedule (Ulaanbaatar 06:00, 08:00, 14:00, 18:00, 22:00).
 

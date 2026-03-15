@@ -13,6 +13,15 @@ on:
     # Ulaanbaatar 06:00
     - cron: "0 22 * * *"
   workflow_dispatch:
+    inputs:
+      force_slot_hour:
+        description: "Force schedule hour in Asia/Ulaanbaatar time (e.g. 8 for zodiac post)"
+        required: false
+        default: ""
+      post_category:
+        description: "Optional explicit category override"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -145,6 +154,8 @@ jobs:
           CONTENT_TIMEZONE: "Asia/Ulaanbaatar"
           USE_TIME_SLOT_SCHEDULE: "1"
           TRIGGER_SCHEDULE_CRON: "${{ github.event.schedule }}"
+          FORCE_SLOT_HOUR: "${{ inputs.force_slot_hour }}"
+          POST_CATEGORY: "${{ inputs.post_category }}"
           ENABLE_MIDNIGHT_POST: "1"
           PIN_SCHEDULED_POSTS: "1"
           PIN_CATEGORIES: "horoscope,zodiac_horoscope"
