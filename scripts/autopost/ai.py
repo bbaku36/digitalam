@@ -533,6 +533,48 @@ def _build_buddhist_almanac_repair_prompts(
     return system_prompt, _append_variation_seed(user_prompt)
 
 
+def _build_zodiac_repair_prompts(
+    now_local: str,
+    validation_reason: str,
+    previous_text: str,
+) -> tuple[str, str]:
+    system_prompt = (
+        "You are a Mongolian daily zodiac horoscope editor. "
+        "Return ONLY a Mongolian Facebook post in clean plain text. "
+        "Keep the exact 12-sign structure and exact sign heading order. "
+        "Never address the reader with affectionate or intimate pet names such as "
+        "'хайрт', 'хонгор', 'хонгор минь', 'хайрт минь', 'хонгорхон', or 'зүрх минь'. "
+        "Do not switch to Buddhist almanac language."
+    )
+    trimmed = previous_text.strip()
+    if len(trimmed) > 1200:
+        trimmed = trimmed[:1200]
+    user_prompt = (
+        f"Rewrite today's 12-sign zodiac horoscope for {now_local}. "
+        f"Previous draft failed with reason: {validation_reason}. "
+        "Keep the exact title format '12 ордын зурхай (YYYY-MM-DD)'. "
+        "Keep exactly these 12 headings in this exact order and exact spelling:\n"
+        "♈ Хонины орд (3/21 - 4/19)\n"
+        "♉ Үхрийн орд (4/20 - 5/20)\n"
+        "♊ Ихрийн орд (5/21 - 6/21)\n"
+        "♋ Мэлхийн орд (6/22 - 7/22)\n"
+        "♌ Арслангийн орд (7/23 - 8/22)\n"
+        "♍ Охины орд (8/23 - 9/22)\n"
+        "♎ Жинлүүрийн орд (9/23 - 10/23)\n"
+        "♏ Хилэнцийн орд (10/24 - 11/21)\n"
+        "♐ Нумын орд (11/22 - 12/21)\n"
+        "♑ Матрын орд (12/22 - 1/19)\n"
+        "♒ Хумхын орд (1/20 - 2/18)\n"
+        "♓ Загасны орд (2/19 - 3/20)\n"
+        "Remove any affectionate direct address and keep the tone neutral, clean, and editorial. "
+        "Each sign must have a 2-3 sentence paragraph under its heading. "
+        "End with a short disclaimer and exactly these hashtags: #12Орд #ӨдрийнЗурхай #ОрдныЗурхай #DigitalLam\n\n"
+        "Bad previous draft (for fixing):\n"
+        f"{trimmed}\n"
+    )
+    return system_prompt, _append_variation_seed(user_prompt)
+
+
 def build_prompts(
     category: str,
     now_local: str,
@@ -1057,6 +1099,38 @@ def ai_generate_generic_post(
                             validation_reason = "time_guard_rejected"
                     elif retry_reason:
                         validation_reason = retry_reason
+                elif category == "zodiac_horoscope":
+                    repair_system, repair_user = _build_zodiac_repair_prompts(
+                        now_local=now_local,
+                        validation_reason=validation_reason,
+                        previous_text=result,
+                    )
+                    retry_result, retry_reason = call_gemini(
+                        repair_system,
+                        repair_user,
+                        category,
+                        timeout_sec,
+                        temperature,
+                    )
+                    if retry_result:
+                        retry_valid, retry_validation_reason = _validate_category_output(
+                            category,
+                            retry_result,
+                        )
+                        if retry_valid and not violates_time_of_day(retry_result, slot_hour):
+                            _set_last_ai_status(
+                                used_ai=True,
+                                provider_used="gemini",
+                                gemini_failed=False,
+                                gemini_failure_reason="",
+                            )
+                            return retry_result
+                        if not retry_valid:
+                            validation_reason = retry_validation_reason
+                        else:
+                            validation_reason = "time_guard_rejected"
+                    elif retry_reason:
+                        validation_reason = retry_reason
                 _set_last_ai_status(
                     used_ai=False,
                     provider_used="gemini",
@@ -1159,6 +1233,39 @@ def ai_generate_generic_post(
                             validation_reason = "time_guard_rejected"
                     elif retry_reason:
                         validation_reason = retry_reason
+                elif category == "zodiac_horoscope":
+                    repair_system, repair_user = _build_zodiac_repair_prompts(
+                        now_local=now_local,
+                        validation_reason=validation_reason,
+                        previous_text=result,
+                    )
+                    retry_result, retry_reason = call_deepseek(
+                        repair_system,
+                        repair_user,
+                        category,
+                        timeout_sec,
+                        temperature,
+                    )
+                    if retry_result:
+                        retry_valid, retry_validation_reason = _validate_category_output(
+                            category,
+                            retry_result,
+                        )
+                        if retry_valid and not violates_time_of_day(retry_result, slot_hour):
+                            _set_last_ai_status(
+                                used_ai=True,
+                                provider_used="deepseek",
+                                gemini_failed=False,
+                                deepseek_failed=False,
+                                deepseek_failure_reason="",
+                            )
+                            return retry_result
+                        if not retry_valid:
+                            validation_reason = retry_validation_reason
+                        else:
+                            validation_reason = "time_guard_rejected"
+                    elif retry_reason:
+                        validation_reason = retry_reason
                 _set_last_ai_status(
                     used_ai=False,
                     provider_used="deepseek",
@@ -1225,6 +1332,38 @@ def ai_generate_generic_post(
                             validation_reason = "time_guard_rejected"
                     elif retry_reason:
                         validation_reason = retry_reason
+                elif category == "zodiac_horoscope":
+                    repair_system, repair_user = _build_zodiac_repair_prompts(
+                        now_local=now_local,
+                        validation_reason=validation_reason,
+                        previous_text=result,
+                    )
+                    retry_result, retry_reason = call_gemini(
+                        repair_system,
+                        repair_user,
+                        category,
+                        timeout_sec,
+                        temperature,
+                    )
+                    if retry_result:
+                        retry_valid, retry_validation_reason = _validate_category_output(
+                            category,
+                            retry_result,
+                        )
+                        if retry_valid and not violates_time_of_day(retry_result, slot_hour):
+                            _set_last_ai_status(
+                                used_ai=True,
+                                provider_used="gemini",
+                                gemini_failed=False,
+                                gemini_failure_reason="",
+                            )
+                            return retry_result
+                        if not retry_valid:
+                            validation_reason = retry_validation_reason
+                        else:
+                            validation_reason = "time_guard_rejected"
+                    elif retry_reason:
+                        validation_reason = retry_reason
                 gemini_failed = True
                 gemini_failure_reason = validation_reason
                 result = None
@@ -1255,6 +1394,40 @@ def ai_generate_generic_post(
                 if category in BUDDHIST_ALMANAC_CATEGORIES:
                     repair_system, repair_user = _build_buddhist_almanac_repair_prompts(
                         category=category,
+                        now_local=now_local,
+                        validation_reason=validation_reason,
+                        previous_text=result,
+                    )
+                    retry_result, retry_reason = call_deepseek(
+                        repair_system,
+                        repair_user,
+                        category,
+                        timeout_sec,
+                        temperature,
+                    )
+                    if retry_result:
+                        retry_valid, retry_validation_reason = _validate_category_output(
+                            category,
+                            retry_result,
+                        )
+                        if retry_valid and not violates_time_of_day(retry_result, slot_hour):
+                            _set_last_ai_status(
+                                used_ai=True,
+                                provider_used="deepseek",
+                                gemini_failed=gemini_failed,
+                                gemini_failure_reason=gemini_failure_reason,
+                                deepseek_failed=False,
+                                deepseek_failure_reason="",
+                            )
+                            return retry_result
+                        if not retry_valid:
+                            validation_reason = retry_validation_reason
+                        else:
+                            validation_reason = "time_guard_rejected"
+                    elif retry_reason:
+                        validation_reason = retry_reason
+                elif category == "zodiac_horoscope":
+                    repair_system, repair_user = _build_zodiac_repair_prompts(
                         now_local=now_local,
                         validation_reason=validation_reason,
                         previous_text=result,
