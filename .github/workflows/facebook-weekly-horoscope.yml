@@ -2,8 +2,8 @@ name: Facebook Weekly Almanac Summary
 
 on:
   schedule:
-    # Every Monday 00:05 UTC (Ulaanbaatar: Monday 08:05)
-    - cron: "5 0 * * 1"
+    # Every Monday 00:00 UTC (Ulaanbaatar: Monday 08:00)
+    - cron: "0 0 * * 1"
   workflow_dispatch:
     inputs:
       manual_post_file:
