@@ -7,7 +7,7 @@ import os
 import re
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from .constants import MANTRA_LIBRARY_MN, WEEKDAY_MN, ZODIAC_SIGN_DETAILS_MN, ZODIAC_SIGNS_MN
@@ -34,7 +34,7 @@ STATE_DIR = ROOT / ".state"
 GEMINI_KEY_STATE_FILE = STATE_DIR / "gemini_key_state.json"
 APPROVED_MANTRA_LINES = tuple(item[0] for item in MANTRA_LIBRARY_MN)
 APPROVED_ZODIAC_SIGNS = tuple(ZODIAC_SIGNS_MN)
-BUDDHIST_ALMANAC_CATEGORIES = {"horoscope", "daily_guidance", "weekly", "weekly_horoscope"}
+BUDDHIST_ALMANAC_CATEGORIES = {"horoscope", "daily_guidance", "weekly"}
 BUDDHIST_ALMANAC_BANNED_PHRASES = (
     "анхилам агаар",
     "ерөнхий зорилго",
@@ -232,6 +232,14 @@ def _format_mongolian_day_intro(now_local: str) -> str:
     )
 
 
+def _format_week_range(now_local: str) -> str:
+    date_only = now_local.split()[0].strip()
+    parsed = datetime.strptime(date_only, "%Y-%m-%d")
+    monday = parsed - timedelta(days=parsed.weekday())
+    sunday = monday + timedelta(days=6)
+    return f"{monday.year}.{monday.month:02d}.{monday.day:02d}-{sunday.year}.{sunday.month:02d}.{sunday.day:02d}"
+
+
 def _validate_buddhist_almanac_output(category: str, text: str) -> tuple[bool, str]:
     lower = text.lower()
     non_empty_lines = [line.strip() for line in text.splitlines() if line.strip()]
@@ -331,6 +339,34 @@ def _validate_zodiac_horoscope_output(text: str) -> tuple[bool, str]:
     return True, ""
 
 
+def _validate_weekly_zodiac_horoscope_output(text: str) -> tuple[bool, str]:
+    lower = text.lower()
+    if "7 хоног" not in lower or ("12 орд" not in lower and "ордын зурхай" not in lower):
+        return False, "missing_weekly_zodiac_title"
+    non_empty_lines = [line.strip() for line in text.splitlines() if line.strip()]
+    if len(non_empty_lines) < 15:
+        return False, "weekly_zodiac_post_too_short"
+    first_line = non_empty_lines[0].lower()
+    if "7 хоног" not in first_line or ("12 орд" not in first_line and "ордын зурхай" not in first_line):
+        return False, "missing_weekly_zodiac_title_line"
+    if any(marker in lower for marker in ("ерөнхий чиг", "үс засуулахад дөхөм өдөр", "аян замд гарахад дөхөм өдөр")):
+        return False, "old_weekly_buddhist_format_detected"
+
+    heading_lines = 0
+    for sign, (symbol, label, date_range) in zip(APPROVED_ZODIAC_SIGNS, ZODIAC_SIGN_DETAILS_MN):
+        accepted_headings = (
+            f"{symbol} {label} ({date_range})",
+            f"{symbol} {sign} ({date_range})",
+        )
+        if not any(heading in text for heading in accepted_headings):
+            return False, f"missing_heading_{label}"
+        heading_lines += 1
+    if heading_lines != len(ZODIAC_SIGN_DETAILS_MN):
+        return False, "invalid_sign_heading_count"
+
+    return True, ""
+
+
 def _validate_category_output(category: str, text: str) -> tuple[bool, str]:
     lower = text.lower()
     for term in DISALLOWED_AFFECTIONATE_TERMS:
@@ -342,6 +378,8 @@ def _validate_category_output(category: str, text: str) -> tuple[bool, str]:
         return _validate_buddhist_almanac_output(category, text)
     if category == "zodiac_horoscope":
         return _validate_zodiac_horoscope_output(text)
+    if category == "weekly_horoscope":
+        return _validate_weekly_zodiac_horoscope_output(text)
 
     if category != "mantra":
         return True, ""
@@ -580,6 +618,54 @@ def _build_zodiac_repair_prompts(
     return system_prompt, _append_variation_seed(user_prompt)
 
 
+def _build_weekly_zodiac_repair_prompts(
+    now_local: str,
+    validation_reason: str,
+    previous_text: str,
+) -> tuple[str, str]:
+    system_prompt = (
+        "You are a Mongolian weekly zodiac horoscope editor. "
+        "Return ONLY a Mongolian Facebook post in clean plain text. "
+        "Keep the exact 12-sign structure and exact sign heading order. "
+        "Never address the reader with affectionate or intimate pet names such as "
+        "'хайрт', 'хонгор', 'хонгор минь', 'хайрт минь', 'хонгорхон', or 'зүрх минь'. "
+        "Do not switch to Buddhist almanac language. "
+        "Forbidden weekly Buddhist headings and phrases: "
+        "'Ерөнхий чиг', 'Үс засуулахад дөхөм өдөр', 'Аян замд гарахад дөхөм өдөр', "
+        "'Үйл хийхэд сайн өдөр', 'Цээрлэх зүйл', 'Буян номын', 'мөрөө гаргавал'. "
+        "Do not use markdown emphasis or asterisks."
+    )
+    trimmed = previous_text.strip()
+    if len(trimmed) > 1400:
+        trimmed = trimmed[:1400]
+    week_range = _format_week_range(now_local)
+    user_prompt = (
+        f"Rewrite this week's 12-sign zodiac horoscope for {now_local}. "
+        f"Previous draft failed with reason: {validation_reason}. "
+        f"Keep the exact title format '7 хоногийн 12 ордын зурхай ({week_range})'. "
+        "Keep exactly these 12 headings in this exact order and exact spelling:\n"
+        "♈ Хонины орд (3/21 - 4/19)\n"
+        "♉ Үхрийн орд (4/20 - 5/20)\n"
+        "♊ Ихрийн орд (5/21 - 6/21)\n"
+        "♋ Мэлхийн орд (6/22 - 7/22)\n"
+        "♌ Арслангийн орд (7/23 - 8/22)\n"
+        "♍ Охины орд (8/23 - 9/22)\n"
+        "♎ Жинлүүрийн орд (9/23 - 10/23)\n"
+        "♏ Хилэнцийн орд (10/24 - 11/21)\n"
+        "♐ Нумын орд (11/22 - 12/21)\n"
+        "♑ Матрын орд (12/22 - 1/19)\n"
+        "♒ Хумхын орд (1/20 - 2/18)\n"
+        "♓ Загасны орд (2/19 - 3/20)\n"
+        "Remove any affectionate direct address and keep the tone neutral, clean, and editorial. "
+        "Each sign must have a 2-3 sentence paragraph under its heading. "
+        "Do not include Buddhist weekly sections or any hair/travel/action-day guidance. "
+        "End with a short disclaimer and exactly these hashtags: #7ХоногийнЗурхай #12Орд #ОрдныЗурхай #DigitalLam\n\n"
+        "Bad previous draft (for fixing):\n"
+        f"{trimmed}\n"
+    )
+    return system_prompt, _append_variation_seed(user_prompt)
+
+
 def build_prompts(
     category: str,
     now_local: str,
@@ -797,27 +883,48 @@ def build_prompts(
             "Include the 3 required weekday sections and keep the language practical and seasoned."
         )
     elif category == "weekly_horoscope":
+        week_range = _format_week_range(now_local)
         system_prompt = (
-            "You are a Mongolian Buddhist weekly almanac writer. "
-            "Write a weekly Facebook post in Mongolian in the style of traditional Mongolian Yellow Buddhism guidance. "
-            "Do not use Western zodiac signs, Chinese zodiac animals, birth years, or 12-sign readings. "
-            "Include these sections exactly once: "
-            "1) 'Ерөнхий чиг', "
-            "2) 'Үс засуулахад дөхөм өдөр', "
-            "3) 'Аян замд гарахад дөхөм өдөр', "
-            "4) 'Үйл хийхэд сайн өдөр', "
-            "5) 'Цээрлэх зүйл'. "
-            "Use terse, formulaic almanac diction and avoid modern self-help language. "
-            "Prefer phrases such as 'Эл 7 хоногт ... өлзийтэй.', 'Хол газар яваар одогсод ... мөрөө гаргавал ...', "
-            "'Буян номын ... үйлд сайн.', and '... үйл цээрлэвэл зохистой.' "
-            "Use plain text only, no markdown emphasis, no asterisks. "
-            "Keep it concise, practical, respectful, and free of medical, legal, or financial guarantees."
+            "You are a Mongolian weekly zodiac horoscope writer. "
+            "Write a Facebook post in Mongolian for exactly these 12 zodiac signs only: "
+            f"{', '.join(APPROVED_ZODIAC_SIGNS)}. "
+            "Do not use Buddhist almanac sections, Chinese zodiac animals, or markdown emphasis. "
+            "Forbidden headings and phrases: "
+            "'Ерөнхий чиг', 'Үс засуулахад дөхөм өдөр', 'Аян замд гарахад дөхөм өдөр', "
+            "'Үйл хийхэд сайн өдөр', 'Цээрлэх зүйл', 'Буян номын', 'мөрөө гаргавал'. "
+            "Use this structure exactly: "
+            "1) title, "
+            "2) one short intro paragraph about the week's overall astrological mood, "
+            "3) 12 sign sections in the same order as listed above, "
+            "4) one short disclaimer, "
+            "5) hashtags. "
+            "Each sign section must have a heading line with the zodiac symbol, Mongolian sign label, and date range, "
+            "followed by a short paragraph of 2-3 sentences. "
+            "If source facts are provided, keep each sign aligned with its supplied GoGo weekly meaning, but rewrite the wording instead of copying it. "
+            "Keep the tone readable, specific, and editorial. Avoid medical, legal, or financial guarantees."
         )
         user_prompt = (
-            f"Generate this week's Mongolian Buddhist-style weekly guidance post for {now_local}. "
-            "Include a title with the week range, the 5 required sections, a short disclaimer that it is traditional general guidance, and 4-5 hashtags. "
-            "Use plain text only and do not add markdown emphasis or asterisks. "
-            "Make sure the body includes at least a few traditional phrases like өлзийтэй, буян номын, хол газар яваар одогсод, мөрөө гаргавал, эсвэл цээрлэвэл зохистой."
+            f"Generate this week's 12-sign zodiac horoscope post for {now_local}. "
+            f"Open with the exact title '7 хоногийн 12 ордын зурхай ({week_range})'. "
+            "Then write one short intro paragraph summarizing the week's general tendency across most signs. "
+            "After that, include exactly these 12 sign sections in this exact order and exact heading format:\n"
+            "♈ Хонины орд (3/21 - 4/19)\n"
+            "♉ Үхрийн орд (4/20 - 5/20)\n"
+            "♊ Ихрийн орд (5/21 - 6/21)\n"
+            "♋ Мэлхийн орд (6/22 - 7/22)\n"
+            "♌ Арслангийн орд (7/23 - 8/22)\n"
+            "♍ Охины орд (8/23 - 9/22)\n"
+            "♎ Жинлүүрийн орд (9/23 - 10/23)\n"
+            "♏ Хилэнцийн орд (10/24 - 11/21)\n"
+            "♐ Нумын орд (11/22 - 12/21)\n"
+            "♑ Матрын орд (12/22 - 1/19)\n"
+            "♒ Хумхын орд (1/20 - 2/18)\n"
+            "♓ Загасны орд (2/19 - 3/20)\n"
+            "Each sign must have its heading on one line and a 2-3 sentence paragraph underneath. "
+            "Do not use bullet points or numbering. "
+            "If source facts are provided, use them as the factual basis for each sign paragraph and keep them close to the GoGo weekly meaning. "
+            "Never include any hair-cutting, travel-direction, or ritual-action day guidance. "
+            "Finish with a short disclaimer and exactly these hashtags: #7ХоногийнЗурхай #12Орд #ОрдныЗурхай #DigitalLam"
         )
     else:
         return None
@@ -1174,6 +1281,38 @@ def ai_generate_generic_post(
                             validation_reason = "time_guard_rejected"
                     elif retry_reason:
                         validation_reason = retry_reason
+                elif category == "weekly_horoscope":
+                    repair_system, repair_user = _build_weekly_zodiac_repair_prompts(
+                        now_local=now_local,
+                        validation_reason=validation_reason,
+                        previous_text=result,
+                    )
+                    retry_result, retry_reason = call_gemini(
+                        repair_system,
+                        repair_user,
+                        category,
+                        timeout_sec,
+                        temperature,
+                    )
+                    if retry_result:
+                        retry_valid, retry_validation_reason = _validate_category_output(
+                            category,
+                            retry_result,
+                        )
+                        if retry_valid and not violates_time_of_day(retry_result, slot_hour):
+                            _set_last_ai_status(
+                                used_ai=True,
+                                provider_used="gemini",
+                                gemini_failed=False,
+                                gemini_failure_reason="",
+                            )
+                            return retry_result
+                        if not retry_valid:
+                            validation_reason = retry_validation_reason
+                        else:
+                            validation_reason = "time_guard_rejected"
+                    elif retry_reason:
+                        validation_reason = retry_reason
                 _set_last_ai_status(
                     used_ai=False,
                     provider_used="gemini",
@@ -1309,6 +1448,39 @@ def ai_generate_generic_post(
                             validation_reason = "time_guard_rejected"
                     elif retry_reason:
                         validation_reason = retry_reason
+                elif category == "weekly_horoscope":
+                    repair_system, repair_user = _build_weekly_zodiac_repair_prompts(
+                        now_local=now_local,
+                        validation_reason=validation_reason,
+                        previous_text=result,
+                    )
+                    retry_result, retry_reason = call_deepseek(
+                        repair_system,
+                        repair_user,
+                        category,
+                        timeout_sec,
+                        temperature,
+                    )
+                    if retry_result:
+                        retry_valid, retry_validation_reason = _validate_category_output(
+                            category,
+                            retry_result,
+                        )
+                        if retry_valid and not violates_time_of_day(retry_result, slot_hour):
+                            _set_last_ai_status(
+                                used_ai=True,
+                                provider_used="deepseek",
+                                gemini_failed=False,
+                                deepseek_failed=False,
+                                deepseek_failure_reason="",
+                            )
+                            return retry_result
+                        if not retry_valid:
+                            validation_reason = retry_validation_reason
+                        else:
+                            validation_reason = "time_guard_rejected"
+                    elif retry_reason:
+                        validation_reason = retry_reason
                 _set_last_ai_status(
                     used_ai=False,
                     provider_used="deepseek",
@@ -1407,6 +1579,38 @@ def ai_generate_generic_post(
                             validation_reason = "time_guard_rejected"
                     elif retry_reason:
                         validation_reason = retry_reason
+                elif category == "weekly_horoscope":
+                    repair_system, repair_user = _build_weekly_zodiac_repair_prompts(
+                        now_local=now_local,
+                        validation_reason=validation_reason,
+                        previous_text=result,
+                    )
+                    retry_result, retry_reason = call_gemini(
+                        repair_system,
+                        repair_user,
+                        category,
+                        timeout_sec,
+                        temperature,
+                    )
+                    if retry_result:
+                        retry_valid, retry_validation_reason = _validate_category_output(
+                            category,
+                            retry_result,
+                        )
+                        if retry_valid and not violates_time_of_day(retry_result, slot_hour):
+                            _set_last_ai_status(
+                                used_ai=True,
+                                provider_used="gemini",
+                                gemini_failed=False,
+                                gemini_failure_reason="",
+                            )
+                            return retry_result
+                        if not retry_valid:
+                            validation_reason = retry_validation_reason
+                        else:
+                            validation_reason = "time_guard_rejected"
+                    elif retry_reason:
+                        validation_reason = retry_reason
                 gemini_failed = True
                 gemini_failure_reason = validation_reason
                 result = None
@@ -1471,6 +1675,40 @@ def ai_generate_generic_post(
                         validation_reason = retry_reason
                 elif category == "zodiac_horoscope":
                     repair_system, repair_user = _build_zodiac_repair_prompts(
+                        now_local=now_local,
+                        validation_reason=validation_reason,
+                        previous_text=result,
+                    )
+                    retry_result, retry_reason = call_deepseek(
+                        repair_system,
+                        repair_user,
+                        category,
+                        timeout_sec,
+                        temperature,
+                    )
+                    if retry_result:
+                        retry_valid, retry_validation_reason = _validate_category_output(
+                            category,
+                            retry_result,
+                        )
+                        if retry_valid and not violates_time_of_day(retry_result, slot_hour):
+                            _set_last_ai_status(
+                                used_ai=True,
+                                provider_used="deepseek",
+                                gemini_failed=gemini_failed,
+                                gemini_failure_reason=gemini_failure_reason,
+                                deepseek_failed=False,
+                                deepseek_failure_reason="",
+                            )
+                            return retry_result
+                        if not retry_valid:
+                            validation_reason = retry_validation_reason
+                        else:
+                            validation_reason = "time_guard_rejected"
+                    elif retry_reason:
+                        validation_reason = retry_reason
+                elif category == "weekly_horoscope":
+                    repair_system, repair_user = _build_weekly_zodiac_repair_prompts(
                         now_local=now_local,
                         validation_reason=validation_reason,
                         previous_text=result,

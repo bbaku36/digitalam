@@ -12,7 +12,7 @@ This project auto-posts Mongolian Facebook content with fixed time slots:
 - `tomorrow_prep`: маргаашийн бэлтгэл (1 зөвлөмж + ерөөл)
 - `goodnight`: богино амгалан шөнийн пост
 - `weekly`: 7 хоногийн зөвлөмж (үс засуулах өдөр + хол замд гарах өдөр + үйл хийх өдөр), pin хийхэд зориулагдсан
-- `weekly_horoscope`: 7 хоногт 1 удаа шарын шашны хэв маягийн 7 хоногийн зурхай
+- `weekly_horoscope`: 7 хоногт 1 удаа `gogo.mn`-ийн source дээр суурилсан 12 ордын 7 хоногийн зурхай
 
 ## Files
 
@@ -58,7 +58,7 @@ This project auto-posts Mongolian Facebook content with fixed time slots:
 4. Ensure workflow file exists:
    - `.github/workflows/facebook-autopost.yml`
    - `.github/workflows/facebook-weekly-pin.yml` (optional weekly pinned guidance)
-   - `.github/workflows/facebook-weekly-horoscope.yml` (optional weekly Buddhist-style guidance post)
+   - `.github/workflows/facebook-weekly-horoscope.yml` (optional weekly 12 ордын зурхай post)
 5. Run once manually:
    - `Actions -> Facebook Auto Post -> Run workflow`
    - `force_slot_hour=8` өгвөл `08:00`-ийн `zodiac_horoscope` post-ийг шууд ажиллуулж болно
@@ -122,5 +122,5 @@ After that, it runs automatically by schedule (Ulaanbaatar 06:00, 08:00, 14:00, 
 - Gemini 2.5 Flash is used for Facebook-length generation; DeepSeek remains as an optional alternative.
 - Default behavior is `REQUIRE_AI_CONTENT=1`: AI generation fail үед fallback руу унахгүй, run алдаатай зогсоно.
 - Хэрэв fallback-ийг зориуд ашиглах шаардлагатай бол зөвхөн explicit байдлаар `REQUIRE_AI_CONTENT=0` гэж өгч асаана.
-- `06:00` болон `08:00` slot-ууд эхлээд `gogo.mn`-оос source facts татаж, дараа нь AI-аар rewrite хийдэг.
+- `06:00`, `08:00`, мөн `weekly_horoscope` нь эхлээд `gogo.mn`-оос source facts татаж, дараа нь AI-аар rewrite хийдэг.
 - Node dependency хэрэгтэй тул local болон CI дээр `npm ci` ажиллуулна.

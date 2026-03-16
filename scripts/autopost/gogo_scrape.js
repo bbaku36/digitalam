@@ -137,6 +137,45 @@ function parseWesternToday(text, targetDate) {
   };
 }
 
+function parseWesternWeek(text) {
+  const start = text.indexOf("Энэ долоо хоногт (");
+  if (start < 0) {
+    throw new Error("western_week_block_not_found");
+  }
+
+  const tail = text.slice(start);
+  const rawParts = tail.split(/Энэ\s+долоо\s+хоногт\s+\(/u).slice(1);
+  const entries = [];
+  const weeklyStopPattern =
+    /(?:Шинэ мэдээ|Онцлох мэдээ|Тренд мэдээ|Өнөөдөр\s+Энэ\s+долоо\s+хоног|Өнөөдөр\s+Энэ\s+долоо\s+хоног\s+Энэ\s+сар|Энэ\s+сар\s+Энэ\s+жил|Зан\s+байдал|Амжилт\s+бүтээл|Эрүүл\s+мэнд|Ажил\s+мэргэжил|Хайр\s+дурлал,\s*гэр\s+бүл|Эрэгтэй|Эмэгтэй|Зохицол\s+нийцэл|Махбод).*$/u;
+
+  for (const rawPart of rawParts) {
+    const closingIdx = rawPart.indexOf(")");
+    if (closingIdx < 0) {
+      continue;
+    }
+    const dateRange = normalizeText(rawPart.slice(0, closingIdx));
+    let body = normalizeText(rawPart.slice(closingIdx + 1));
+    body = normalizeText(body.replace(weeklyStopPattern, ""));
+    if (dateRange && body) {
+      entries.push({ date_range: dateRange, text: body });
+    }
+  }
+
+  if (entries.length < ZODIAC_SIGNS.length) {
+    throw new Error(`western_week_entries_too_few:${entries.length}`);
+  }
+
+  return {
+    source_url: "https://gogo.mn/horoscope/western/week",
+    source_range: entries[0].date_range,
+    entries: ZODIAC_SIGNS.map((sign, index) => ({
+      sign,
+      text: entries[index].text,
+    })),
+  };
+}
+
 async function main() {
   if (!MODE) {
     throw new Error("missing_mode");
@@ -154,6 +193,12 @@ async function main() {
   if (MODE === "western_today") {
     const text = await loadRenderedText("https://gogo.mn/horoscope/western/today");
     process.stdout.write(`${JSON.stringify(parseWesternToday(text, TARGET_DATE), null, 2)}\n`);
+    return;
+  }
+
+  if (MODE === "western_week") {
+    const text = await loadRenderedText("https://gogo.mn/horoscope/western/week");
+    process.stdout.write(`${JSON.stringify(parseWesternWeek(text), null, 2)}\n`);
     return;
   }
 

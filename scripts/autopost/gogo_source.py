@@ -3,12 +3,36 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 GOGO_SCRAPER = ROOT / "scripts" / "autopost" / "gogo_scrape.js"
+
+
+def _condense_sign_source(text: str, *, max_sentences: int = 4, max_chars: int = 420) -> str:
+    value = " ".join((text or "").split()).strip()
+    if not value:
+        return ""
+
+    parts = re.split(r"(?<=[\.\!\?])\s+", value)
+    kept = []
+    for part in parts:
+        cleaned = part.strip()
+        if not cleaned:
+            continue
+        kept.append(cleaned)
+        if len(kept) >= max_sentences:
+            break
+
+    condensed = " ".join(kept).strip() or value
+    if len(condensed) <= max_chars:
+        return condensed
+
+    clipped = condensed[:max_chars].rsplit(" ", 1)[0].strip()
+    return f"{clipped}..." if clipped else condensed[:max_chars].strip()
 
 
 def _run_gogo_scraper(mode: str, date_label: str) -> dict | None:
@@ -97,6 +121,24 @@ def build_gogo_source_context(category: str, now_local: str) -> str | None:
         for entry in payload.get("entries", []):
             sign = str(entry.get("sign", "")).strip()
             text = str(entry.get("text", "")).strip()
+            if sign and text:
+                context_lines.append(f"{sign}: {text}")
+        return "\n".join(context_lines).strip()
+
+    if category == "weekly_horoscope":
+        payload = _run_gogo_scraper("western_week", date_only)
+        if not payload:
+            return None
+
+        context_lines = [
+            "Source: GoGo Өрнийн зурхай / Энэ долоо хоног (use these sign texts as source material, but rewrite in fresh wording).",
+            f"Source URL: {payload.get('source_url', 'https://gogo.mn/horoscope/western/week')}",
+        ]
+        if payload.get("source_range"):
+            context_lines.append(f"Source range: {payload['source_range']}")
+        for entry in payload.get("entries", []):
+            sign = str(entry.get("sign", "")).strip()
+            text = _condense_sign_source(str(entry.get("text", "")).strip())
             if sign and text:
                 context_lines.append(f"{sign}: {text}")
         return "\n".join(context_lines).strip()
