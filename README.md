@@ -11,7 +11,7 @@ This project auto-posts Mongolian Facebook content with fixed time slots:
 - `evening_insight`: оройн богино ухаарал
 - `tomorrow_prep`: маргаашийн бэлтгэл (1 зөвлөмж + ерөөл)
 - `goodnight`: богино амгалан шөнийн пост
-- `weekly`: 7 хоногийн зөвлөмж (үс засуулах өдөр + хол замд гарах өдөр + үйл хийх өдөр), pin хийхэд зориулагдсан
+- `weekly`: 7 хоногийн зөвлөмж (үс засуулах өдөр + хол замд гарах өдөр + үйл хийх өдөр), manual/optional category
 - `weekly_horoscope`: 7 хоногт 1 удаа `gogo.mn`-ийн өдөр тутмын эх сурвалж дээр суурилсан 7 хоногийн `үс засуулах / аян зам / үйл хийх` тойм
 
 ## Files
@@ -19,8 +19,8 @@ This project auto-posts Mongolian Facebook content with fixed time slots:
 - `scripts/generate_and_post.py`: CLI entrypoint
 - `scripts/autopost/runner.py`: main orchestration flow
 - `scripts/autopost/content.py`: category content builders (AI-first, fallback code kept only as explicit opt-in)
-- `scripts/autopost/schedule.py`: timeslot/category and pin schedule rules
-- `scripts/autopost/facebook.py`: Facebook post + pin API
+- `scripts/autopost/schedule.py`: timeslot/category rules
+- `scripts/autopost/facebook.py`: Facebook post API
 - `scripts/autopost/state.py`: `.state` persistence helpers
 - `scripts/autopost/env.py`: env/flag/timezone helpers
 - `scripts/autopost/constants.py`: static content and category constants
@@ -57,7 +57,6 @@ This project auto-posts Mongolian Facebook content with fixed time slots:
    - `GEMINI_API_KEY` (required for scheduled posting)
 4. Ensure workflow file exists:
    - `.github/workflows/facebook-autopost.yml`
-   - `.github/workflows/facebook-weekly-pin.yml` (optional weekly pinned guidance)
    - `.github/workflows/facebook-weekly-horoscope.yml` (optional weekly day-by-day almanac summary post)
 5. Run once manually:
    - `Actions -> Facebook Auto Post -> Run workflow`
@@ -94,16 +93,8 @@ After that, it runs automatically by schedule (Ulaanbaatar 06:00, 08:00, 14:00, 
   - `USE_TIME_SLOT_SCHEDULE=0`
   - `AUTO_CATEGORIES=insight,mantra,fact,horoscope`
 - Pin controls:
-  - `PIN_POST=1` бол тухайн run-ийн постыг pin хийнэ
-  - `PIN_SCHEDULED_POSTS=1`, `PIN_CATEGORIES=horoscope,zodiac_horoscope` үед 06:00 ба 08:00-ийн зурхайн постууд pin rotation хийнэ
-  - Rotation хийхдээ тухайн category-н өмнөх pinned post-ыг unpin хийгээд шинээр pin хийнэ
-  - Facebook Page нь нэг л pinned post харуулдаг тул хамгийн сүүлд pin хийгдсэн 06:00 эсвэл 08:00 post нь дээрээ харагдана
-  - `POST_CATEGORY=weekly` үед `PIN_WEEKLY_POST=1` (default) бол автоматаар pin хийнэ
-  - `weekly` пост бүрт: өмнөх `weekly` pinned post-ыг unpin хийхийг оролдоод, дараа нь шинэ weekly post-ыг pin хийнэ
-  - Pin/unpin-д `PIN_ACCESS_TOKEN` (эсвэл `FACEBOOK_USER_ACCESS_TOKEN`) өгвөл тэр token-оор pin хийдэг
-  - `PIN_ACCESS_TOKEN` нь user token бөгөөд `pages_manage_engagement` эрхтэй байх ёстой
-  - Хэрэв token байхгүй/эрх дутуу бол пост publish хийгдээд pin алхам warning гарна, энэ үед Page UI дээрээс manual pin хийнэ
-  - API pin/unpin-д ихэвчлэн `pages_manage_engagement` (мөн page admin эрх) шаардлагатай
+  - Auto-pin workflow болон scheduled auto-pin оролдлого GitHub Actions дээр унтраалттай
+  - Хэрэв дараа нь pin хэрэгтэй бол Page UI дээрээс гараар pin хийнэ
 
 ## Gemini Failure Alerts
 
@@ -116,7 +107,7 @@ After that, it runs automatically by schedule (Ulaanbaatar 06:00, 08:00, 14:00, 
 ## Notes
 
 - Script tracks posting history in `.state/` (e.g., `posted_items.json`, `post_meta.json`).
-- In GitHub Actions, `.state/` is cached between runs to keep rotation and pin metadata.
+- In GitHub Actions, `.state/` is cached between runs to keep posting metadata.
 - Facebook API permissions must allow posting to the target Page.
 - If `GEMINI_API_KEY` is set (with `AI_PROVIDER=gemini`), each category content is generated via `gemini-2.5-flash`.
 - Gemini 2.5 Flash is used for Facebook-length generation; DeepSeek remains as an optional alternative.
