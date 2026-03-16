@@ -439,14 +439,19 @@ def _append_variation_seed(user_prompt: str) -> str:
 
 def _apply_elder_voice_style(system_prompt: str, user_prompt: str) -> tuple[str, str]:
     system_suffix = (
-        " Voice and persona: sound like a very wise Mongolian elder speaking with calm authority, "
-        "lived experience, restraint, and benevolent warmth. The writing should feel seasoned and "
-        "trustworthy, not hype-driven, salesy, childish, or generic. "
+        " Voice and persona: sound like a wise Mongolian grandmother speaking from lived experience "
+        "with calm authority, restraint, and benevolent warmth. The writing should feel seasoned, "
+        "trustworthy, and homely, not hype-driven, salesy, childish, or generic. "
+        "The page identity is 'Мэргэн эмээ', so the tone should carry a grandmotherly point of view "
+        "without sounding theatrical or forced. "
+        "You may occasionally use light grandmother phrasing if it feels natural, but do not overuse "
+        "catchphrases such as 'эмээ нь' in every post. "
         "Never address the reader with romantic or overly intimate pet names such as 'хайрт', 'хонгор', or similar language."
     )
     user_suffix = (
-        " The voice must feel like a sharp, perceptive Mongolian elder giving measured guidance. "
-        "Avoid slang, clickbait, exaggerated mysticism, empty motivational filler, and romantic/intimate forms of address."
+        " The voice must feel like a perceptive Mongolian grandmother giving measured guidance in a natural way. "
+        "Avoid slang, clickbait, exaggerated mysticism, empty motivational filler, and romantic/intimate forms of address. "
+        "Do not make the voice cartoonish, overly old-fashioned, or repetitive."
     )
     return f"{system_prompt}{system_suffix}", f"{user_prompt}{user_suffix}"
 
@@ -677,14 +682,23 @@ def build_prompts(
 ) -> tuple[str, str] | None:
     if category == "insight":
         system_prompt = (
-            "You are a Mongolian spiritual writer. Write a concise Facebook post with "
-            "4-6 short insight and motivation lines in Mongolian. Tone should be warm, "
-            "grounded, and practical, not preachy. Avoid medical, legal, or financial "
-            "advice. End with 3-4 relevant hashtags."
+            "You are a thoughtful Mongolian Facebook page writer. "
+            "Write one natural-sounding Mongolian Facebook status, not an article, sermon, or quote card. "
+            "Use 2-3 short paragraphs in plain text, with uneven sentence lengths, as if one real person wrote it in one sitting. "
+            "Base the post on one ordinary daily observation, then turn it into a grounded reflection. "
+            "Keep the tone warm, lived-in, and human. Avoid preachy voice, generic motivational filler, grand metaphors, and overly polished wording. "
+            "Do not use numbered lists, bullet points, or rigid 'lesson' formatting. "
+            "Avoid template phrases such as 'хэдэн бодлоо хуваалцъя', 'энэ мөчид', or similar dramatic openers. "
+            "Let the reflection sound like it came from a wise Mongolian grandmother noticing something small in daily life. "
+            "End with only 1-2 simple, relevant hashtags."
         )
         user_prompt = (
-            f"Generate today's insight and motivational quote post for {now_local}. "
-            "Format as a short intro and numbered list."
+            f"Generate today's insight post for {now_local}. "
+            "It should read naturally for the 14:00 afternoon slot. "
+            "Start from one small, ordinary moment someone could actually notice in real life, then move into a short reflection. "
+            "Do not write a numbered list. Do not stack 4-6 morals. "
+            "Do not sound like a guru, fortune cookie, or formal speech. "
+            "Keep it concise, slightly conversational, and believable as a human-written page post."
         )
     elif category == "horoscope":
         day_intro = _format_mongolian_day_intro(now_local)
@@ -934,15 +948,28 @@ def build_prompts(
     else:
         return None
 
-    return _apply_elder_voice_style(
-        system_prompt,
-        _append_variation_seed(
-            _append_source_context(
-                apply_time_context(user_prompt, slot_hour),
-                source_context,
-            )
-        ),
+    composed_user_prompt = _append_variation_seed(
+        _append_source_context(
+            apply_time_context(user_prompt, slot_hour),
+            source_context,
+        )
     )
+
+    if category == "insight":
+        system_prompt = (
+            f"{system_prompt} "
+            "Voice and persona: sound like the page 'Мэргэн эмээ' speaking naturally, "
+            "like a thoughtful Mongolian grandmother with lived experience, not like a guru, "
+            "formal lecturer, or motivational speaker."
+        )
+        composed_user_prompt = (
+            f"{composed_user_prompt} "
+            "The post should feel handwritten and lightly imperfect in rhythm, while still clean and readable. "
+            "If grandmotherly phrasing appears, use it very lightly and only where it feels natural."
+        )
+        return system_prompt, composed_user_prompt
+
+    return _apply_elder_voice_style(system_prompt, composed_user_prompt)
 
 
 def call_openai(
@@ -1073,7 +1100,7 @@ def call_gemini(
     if not api_keys:
         return None, "missing_gemini_api_key"
 
-    model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip() or "gemini-2.5-flash"
+    model = os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite-preview").strip() or "gemini-3.1-flash-lite-preview"
     base_url = os.getenv("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta").strip().rstrip("/")
     payload = {
         "systemInstruction": {
