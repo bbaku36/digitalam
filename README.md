@@ -36,7 +36,7 @@ This project auto-posts Mongolian Facebook content with fixed time slots:
 2. Fill `.env`:
    - `FACEBOOK_PAGE_ID`
    - `FACEBOOK_PAGE_ACCESS_TOKEN`
-   - `GEMINI_API_KEY` and `AI_PROVIDER=gemini`
+   - `DEEPSEEK_API_KEY` and `AI_PROVIDER=deepseek`
 3. Test in dry run mode:
    ```bash
    DRY_RUN=1 python3 scripts/generate_and_post.py
@@ -54,7 +54,7 @@ This project auto-posts Mongolian Facebook content with fixed time slots:
 3. Add these secrets:
    - `FACEBOOK_PAGE_ID` (required)
    - `FACEBOOK_PAGE_ACCESS_TOKEN` (required)
-   - `GEMINI_API_KEY` (required for scheduled posting)
+   - `DEEPSEEK_API_KEY` (required for scheduled posting)
 4. Ensure workflow file exists:
    - `.github/workflows/facebook-autopost.yml`
    - `.github/workflows/facebook-weekly-horoscope.yml` (optional weekly day-by-day almanac summary post)
@@ -109,8 +109,8 @@ After that, it runs automatically by schedule (Ulaanbaatar 06:00, 08:00, 14:00, 
 - Script tracks posting history in `.state/` (e.g., `posted_items.json`, `post_meta.json`).
 - In GitHub Actions, `.state/` is cached between runs to keep posting metadata.
 - Facebook API permissions must allow posting to the target Page.
-- If `GEMINI_API_KEY` is set (with `AI_PROVIDER=gemini`), each category content is generated via `gemini-2.5-flash`.
-- Gemini 2.5 Flash is used for Facebook-length generation; DeepSeek remains as an optional alternative.
+- If `DEEPSEEK_API_KEY` is set (with `AI_PROVIDER=deepseek`), each category content is generated via `deepseek-chat`.
+- DeepSeek Chat is now the default provider; Gemini remains as an optional alternative.
 - Default behavior is `REQUIRE_AI_CONTENT=1`: AI generation fail үед fallback руу унахгүй, run алдаатай зогсоно.
 - Хэрэв fallback-ийг зориуд ашиглах шаардлагатай бол зөвхөн explicit байдлаар `REQUIRE_AI_CONTENT=0` гэж өгч асаана.
 - `06:00`, `08:00`, мөн `weekly_horoscope` нь эхлээд `gogo.mn`-оос source facts татаж, дараа нь AI-аар rewrite хийдэг.

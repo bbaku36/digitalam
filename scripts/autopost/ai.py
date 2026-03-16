@@ -1386,7 +1386,40 @@ def ai_generate_generic_post(
             valid, validation_reason = _validate_category_output(category, result)
             if not valid:
                 print(f"[WARN] Rejected {category} AI text due to format guard: {validation_reason}")
-                if category in BUDDHIST_ALMANAC_CATEGORIES:
+                if category == "mantra":
+                    repair_system, repair_user = _build_mantra_repair_prompts(
+                        now_local=now_local,
+                        validation_reason=validation_reason,
+                        previous_text=result,
+                    )
+                    retry_result, retry_reason = call_deepseek(
+                        repair_system,
+                        repair_user,
+                        category,
+                        timeout_sec,
+                        temperature,
+                    )
+                    if retry_result:
+                        retry_valid, retry_validation_reason = _validate_category_output(
+                            category,
+                            retry_result,
+                        )
+                        if retry_valid and not violates_time_of_day(retry_result, slot_hour):
+                            _set_last_ai_status(
+                                used_ai=True,
+                                provider_used="deepseek",
+                                gemini_failed=False,
+                                deepseek_failed=False,
+                                deepseek_failure_reason="",
+                            )
+                            return retry_result
+                        if not retry_valid:
+                            validation_reason = retry_validation_reason
+                        else:
+                            validation_reason = "time_guard_rejected"
+                    elif retry_reason:
+                        validation_reason = retry_reason
+                elif category in BUDDHIST_ALMANAC_CATEGORIES:
                     repair_system, repair_user = _build_buddhist_almanac_repair_prompts(
                         category=category,
                         now_local=now_local,
@@ -1503,12 +1536,141 @@ def ai_generate_generic_post(
         )
         return result
 
-    # Auto mode: prefer Gemini if key exists, then DeepSeek, then OpenAI.
+    # Auto mode: prefer DeepSeek if key exists, then Gemini, then OpenAI.
     gemini_failed = False
     gemini_failure_reason = ""
     deepseek_failed = False
     deepseek_failure_reason = ""
 
+    # DeepSeek first (auto mode)
+    deepseek_key = os.getenv("DEEPSEEK_API_KEY", "").strip()
+    if deepseek_key:
+        result, reason = call_deepseek(system_prompt, user_prompt, category, timeout_sec, temperature)
+        if result and violates_time_of_day(result, slot_hour):
+            print(f"[WARN] Rejected {category} AI text due to morning wording in {slot_hour}:00 slot")
+            deepseek_failed = True
+            deepseek_failure_reason = "time_guard_rejected"
+            result = None
+        if result:
+            valid, validation_reason = _validate_category_output(category, result)
+            if not valid:
+                print(f"[WARN] Rejected {category} AI text due to format guard: {validation_reason}")
+                if category in BUDDHIST_ALMANAC_CATEGORIES:
+                    repair_system, repair_user = _build_buddhist_almanac_repair_prompts(
+                        category=category,
+                        now_local=now_local,
+                        validation_reason=validation_reason,
+                        previous_text=result,
+                    )
+                    retry_result, retry_reason = call_deepseek(
+                        repair_system,
+                        repair_user,
+                        category,
+                        timeout_sec,
+                        temperature,
+                    )
+                    if retry_result:
+                        retry_valid, retry_validation_reason = _validate_category_output(
+                            category,
+                            retry_result,
+                        )
+                        if retry_valid and not violates_time_of_day(retry_result, slot_hour):
+                            _set_last_ai_status(
+                                used_ai=True,
+                                provider_used="deepseek",
+                                gemini_failed=False,
+                                deepseek_failed=False,
+                                deepseek_failure_reason="",
+                            )
+                            return retry_result
+                        if not retry_valid:
+                            validation_reason = retry_validation_reason
+                        else:
+                            validation_reason = "time_guard_rejected"
+                    elif retry_reason:
+                        validation_reason = retry_reason
+                elif category == "zodiac_horoscope":
+                    repair_system, repair_user = _build_zodiac_repair_prompts(
+                        now_local=now_local,
+                        validation_reason=validation_reason,
+                        previous_text=result,
+                    )
+                    retry_result, retry_reason = call_deepseek(
+                        repair_system,
+                        repair_user,
+                        category,
+                        timeout_sec,
+                        temperature,
+                    )
+                    if retry_result:
+                        retry_valid, retry_validation_reason = _validate_category_output(
+                            category,
+                            retry_result,
+                        )
+                        if retry_valid and not violates_time_of_day(retry_result, slot_hour):
+                            _set_last_ai_status(
+                                used_ai=True,
+                                provider_used="deepseek",
+                                gemini_failed=False,
+                                deepseek_failed=False,
+                                deepseek_failure_reason="",
+                            )
+                            return retry_result
+                        if not retry_valid:
+                            validation_reason = retry_validation_reason
+                        else:
+                            validation_reason = "time_guard_rejected"
+                    elif retry_reason:
+                        validation_reason = retry_reason
+                elif category == "weekly_horoscope":
+                    repair_system, repair_user = _build_weekly_almanac_repair_prompts(
+                        now_local=now_local,
+                        validation_reason=validation_reason,
+                        previous_text=result,
+                    )
+                    retry_result, retry_reason = call_deepseek(
+                        repair_system,
+                        repair_user,
+                        category,
+                        timeout_sec,
+                        temperature,
+                    )
+                    if retry_result:
+                        retry_valid, retry_validation_reason = _validate_category_output(
+                            category,
+                            retry_result,
+                        )
+                        if retry_valid and not violates_time_of_day(retry_result, slot_hour):
+                            _set_last_ai_status(
+                                used_ai=True,
+                                provider_used="deepseek",
+                                gemini_failed=False,
+                                deepseek_failed=False,
+                                deepseek_failure_reason="",
+                            )
+                            return retry_result
+                        if not retry_valid:
+                            validation_reason = retry_validation_reason
+                        else:
+                            validation_reason = "time_guard_rejected"
+                    elif retry_reason:
+                        validation_reason = retry_reason
+                deepseek_failed = True
+                deepseek_failure_reason = validation_reason
+                result = None
+        if result:
+            _set_last_ai_status(
+                used_ai=True,
+                provider_used="deepseek",
+                gemini_failed=False,
+                deepseek_failed=False,
+                deepseek_failure_reason="",
+            )
+            return result
+        deepseek_failed = True
+        deepseek_failure_reason = reason or "deepseek_unknown_error"
+
+    # Gemini fallback (auto mode)
     if get_gemini_api_keys():
         result, reason = call_gemini(system_prompt, user_prompt, category, timeout_sec, temperature)
         if result and violates_time_of_day(result, slot_hour):
@@ -1522,6 +1684,39 @@ def ai_generate_generic_post(
                 print(f"[WARN] Rejected {category} AI text due to format guard: {validation_reason}")
                 if category == "mantra":
                     repair_system, repair_user = _build_mantra_repair_prompts(
+                        now_local=now_local,
+                        validation_reason=validation_reason,
+                        previous_text=result,
+                    )
+                    retry_result, retry_reason = call_gemini(
+                        repair_system,
+                        repair_user,
+                        category,
+                        timeout_sec,
+                        temperature,
+                    )
+                    if retry_result:
+                        retry_valid, retry_validation_reason = _validate_category_output(
+                            category,
+                            retry_result,
+                        )
+                        if retry_valid and not violates_time_of_day(retry_result, slot_hour):
+                            _set_last_ai_status(
+                                used_ai=True,
+                                provider_used="gemini",
+                                gemini_failed=False,
+                                gemini_failure_reason="",
+                            )
+                            return retry_result
+                        if not retry_valid:
+                            validation_reason = retry_validation_reason
+                        else:
+                            validation_reason = "time_guard_rejected"
+                    elif retry_reason:
+                        validation_reason = retry_reason
+                elif category in BUDDHIST_ALMANAC_CATEGORIES:
+                    repair_system, repair_user = _build_buddhist_almanac_repair_prompts(
+                        category=category,
                         now_local=now_local,
                         validation_reason=validation_reason,
                         previous_text=result,
@@ -1629,138 +1824,6 @@ def ai_generate_generic_post(
             return result
         gemini_failed = True
         gemini_failure_reason = reason or "gemini_unknown_error"
-
-    # DeepSeek fallback (auto mode)
-    deepseek_key = os.getenv("DEEPSEEK_API_KEY", "").strip()
-    if deepseek_key:
-        result, reason = call_deepseek(system_prompt, user_prompt, category, timeout_sec, temperature)
-        if result and violates_time_of_day(result, slot_hour):
-            print(f"[WARN] Rejected {category} AI text due to morning wording in {slot_hour}:00 slot")
-            deepseek_failed = True
-            deepseek_failure_reason = "time_guard_rejected"
-            result = None
-        if result:
-            valid, validation_reason = _validate_category_output(category, result)
-            if not valid:
-                print(f"[WARN] Rejected {category} AI text due to format guard: {validation_reason}")
-                if category in BUDDHIST_ALMANAC_CATEGORIES:
-                    repair_system, repair_user = _build_buddhist_almanac_repair_prompts(
-                        category=category,
-                        now_local=now_local,
-                        validation_reason=validation_reason,
-                        previous_text=result,
-                    )
-                    retry_result, retry_reason = call_deepseek(
-                        repair_system,
-                        repair_user,
-                        category,
-                        timeout_sec,
-                        temperature,
-                    )
-                    if retry_result:
-                        retry_valid, retry_validation_reason = _validate_category_output(
-                            category,
-                            retry_result,
-                        )
-                        if retry_valid and not violates_time_of_day(retry_result, slot_hour):
-                            _set_last_ai_status(
-                                used_ai=True,
-                                provider_used="deepseek",
-                                gemini_failed=gemini_failed,
-                                gemini_failure_reason=gemini_failure_reason,
-                                deepseek_failed=False,
-                                deepseek_failure_reason="",
-                            )
-                            return retry_result
-                        if not retry_valid:
-                            validation_reason = retry_validation_reason
-                        else:
-                            validation_reason = "time_guard_rejected"
-                    elif retry_reason:
-                        validation_reason = retry_reason
-                elif category == "zodiac_horoscope":
-                    repair_system, repair_user = _build_zodiac_repair_prompts(
-                        now_local=now_local,
-                        validation_reason=validation_reason,
-                        previous_text=result,
-                    )
-                    retry_result, retry_reason = call_deepseek(
-                        repair_system,
-                        repair_user,
-                        category,
-                        timeout_sec,
-                        temperature,
-                    )
-                    if retry_result:
-                        retry_valid, retry_validation_reason = _validate_category_output(
-                            category,
-                            retry_result,
-                        )
-                        if retry_valid and not violates_time_of_day(retry_result, slot_hour):
-                            _set_last_ai_status(
-                                used_ai=True,
-                                provider_used="deepseek",
-                                gemini_failed=gemini_failed,
-                                gemini_failure_reason=gemini_failure_reason,
-                                deepseek_failed=False,
-                                deepseek_failure_reason="",
-                            )
-                            return retry_result
-                        if not retry_valid:
-                            validation_reason = retry_validation_reason
-                        else:
-                            validation_reason = "time_guard_rejected"
-                    elif retry_reason:
-                        validation_reason = retry_reason
-                elif category == "weekly_horoscope":
-                    repair_system, repair_user = _build_weekly_almanac_repair_prompts(
-                        now_local=now_local,
-                        validation_reason=validation_reason,
-                        previous_text=result,
-                    )
-                    retry_result, retry_reason = call_deepseek(
-                        repair_system,
-                        repair_user,
-                        category,
-                        timeout_sec,
-                        temperature,
-                    )
-                    if retry_result:
-                        retry_valid, retry_validation_reason = _validate_category_output(
-                            category,
-                            retry_result,
-                        )
-                        if retry_valid and not violates_time_of_day(retry_result, slot_hour):
-                            _set_last_ai_status(
-                                used_ai=True,
-                                provider_used="deepseek",
-                                gemini_failed=gemini_failed,
-                                gemini_failure_reason=gemini_failure_reason,
-                                deepseek_failed=False,
-                                deepseek_failure_reason="",
-                            )
-                            return retry_result
-                        if not retry_valid:
-                            validation_reason = retry_validation_reason
-                        else:
-                            validation_reason = "time_guard_rejected"
-                    elif retry_reason:
-                        validation_reason = retry_reason
-                deepseek_failed = True
-                deepseek_failure_reason = validation_reason
-                result = None
-        if result:
-            _set_last_ai_status(
-                used_ai=True,
-                provider_used="deepseek",
-                gemini_failed=gemini_failed,
-                gemini_failure_reason=gemini_failure_reason,
-                deepseek_failed=False,
-                deepseek_failure_reason="",
-            )
-            return result
-        deepseek_failed = True
-        deepseek_failure_reason = deepseek_failure_reason or reason or "deepseek_unknown_error"
 
     result, openai_reason = call_openai(system_prompt, user_prompt, category, timeout_sec, temperature)
     if result and violates_time_of_day(result, slot_hour):
