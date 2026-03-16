@@ -138,7 +138,11 @@ def build_gogo_source_context(category: str, now_local: str) -> str | None:
             context_lines.append(f"Source range: {payload['source_range']}")
         for entry in payload.get("entries", []):
             sign = str(entry.get("sign", "")).strip()
-            text = _condense_sign_source(str(entry.get("text", "")).strip())
+            text = _condense_sign_source(
+                str(entry.get("text", "")).strip(),
+                max_sentences=2,
+                max_chars=220,
+            )
             if sign and text:
                 context_lines.append(f"{sign}: {text}")
         return "\n".join(context_lines).strip()
