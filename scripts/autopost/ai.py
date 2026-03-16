@@ -294,7 +294,10 @@ def _validate_buddhist_almanac_output(category: str, text: str) -> tuple[bool, s
             return False, "missing_traditional_day_phrase"
 
     marker_hits = sum(1 for marker in TRADITIONAL_ALMANAC_MARKERS if marker in lower)
-    if marker_hits < 3:
+    required_marker_hits = 3
+    if category in {"weekly", "weekly_horoscope"}:
+        required_marker_hits = 2
+    if marker_hits < required_marker_hits:
         return False, "missing_traditional_almanac_tone"
 
     return True, ""
@@ -463,6 +466,7 @@ def _build_buddhist_almanac_repair_prompts(
         "You are a Mongolian Buddhist almanac writer. "
         "Return ONLY a Mongolian Facebook post in terse, formulaic Mongolian bilgiin toolol diction. "
         "Do not use modern self-help, business, planning, coaching, or motivational language. "
+        "Use plain text only. Do not use markdown emphasis, asterisks, bullets, or decorative formatting. "
         "Prefer terse traditional phrasing such as: "
         "'Эл өдөр ...', "
         "'Үс шинээр үргээлгэх буюу засуулахад ...', "
@@ -510,11 +514,11 @@ def _build_buddhist_almanac_repair_prompts(
         ),
         "weekly_horoscope": (
             "7 хоногийн шарын шашны зурхай (...)\n"
-            "Ерөнхий чиг: Эл 7 хоногт ...\n"
-            "Үс засуулахад дөхөм өдөр: ...\n"
-            "Аян замд гарахад дөхөм өдөр: ...\n"
-            "Үйл хийхэд сайн өдөр: ...\n"
-            "Цээрлэх зүйл: ...\n"
+            "Ерөнхий чиг: Эл 7 хоногт ... өлзийтэй.\n"
+            "Үс засуулахад дөхөм өдөр: Үс засуулахад ...\n"
+            "Аян замд гарахад дөхөм өдөр: Хол газар яваар одогсод ... мөрөө гаргавал ...\n"
+            "Үйл хийхэд сайн өдөр: Буян номын ... үйлд сайн.\n"
+            "Цээрлэх зүйл: ... үйл цээрлэвэл зохистой.\n"
             "Тэмдэглэл: Энэ нь уламжлалт, ерөнхий чиглүүлэг.\n"
             "#ШарынШашныЗурхай ..."
         ),
@@ -522,6 +526,7 @@ def _build_buddhist_almanac_repair_prompts(
     user_prompt = (
         f"Rewrite the {category} post for {now_local}. Previous draft failed with reason: {validation_reason}. "
         "Use strict Mongolian Buddhist almanac phrasing. "
+        "Use plain text only. Do not use markdown emphasis or asterisks anywhere. "
         "Forbidden words and tone: зорилго, төлөвлөгөө, стратеги, фокус, анхилам агаар, өргөн хүрээний аялал, урт хугацааны төлөвлөгөө, бичиг цаас, хэлэлцээр, гэрээ хийх, coaching-style explanation. "
         "Prefer traditional religious acts such as буян ном, маань тарни, засал, ариусгах, тахилга, ерөөл. "
         "Keep each section to one sentence maximum and do not explain the reasoning. "
@@ -803,11 +808,16 @@ def build_prompts(
             "4) 'Үйл хийхэд сайн өдөр', "
             "5) 'Цээрлэх зүйл'. "
             "Use terse, formulaic almanac diction and avoid modern self-help language. "
+            "Prefer phrases such as 'Эл 7 хоногт ... өлзийтэй.', 'Хол газар яваар одогсод ... мөрөө гаргавал ...', "
+            "'Буян номын ... үйлд сайн.', and '... үйл цээрлэвэл зохистой.' "
+            "Use plain text only, no markdown emphasis, no asterisks. "
             "Keep it concise, practical, respectful, and free of medical, legal, or financial guarantees."
         )
         user_prompt = (
             f"Generate this week's Mongolian Buddhist-style weekly guidance post for {now_local}. "
-            "Include a title with the week range, the 5 required sections, a short disclaimer that it is traditional general guidance, and 4-5 hashtags."
+            "Include a title with the week range, the 5 required sections, a short disclaimer that it is traditional general guidance, and 4-5 hashtags. "
+            "Use plain text only and do not add markdown emphasis or asterisks. "
+            "Make sure the body includes at least a few traditional phrases like өлзийтэй, буян номын, хол газар яваар одогсод, мөрөө гаргавал, эсвэл цээрлэвэл зохистой."
         )
     else:
         return None
@@ -1069,6 +1079,39 @@ def ai_generate_generic_post(
                 print(f"[WARN] Rejected {category} AI text due to format guard: {validation_reason}")
                 if category == "mantra":
                     repair_system, repair_user = _build_mantra_repair_prompts(
+                        now_local=now_local,
+                        validation_reason=validation_reason,
+                        previous_text=result,
+                    )
+                    retry_result, retry_reason = call_gemini(
+                        repair_system,
+                        repair_user,
+                        category,
+                        timeout_sec,
+                        temperature,
+                    )
+                    if retry_result:
+                        retry_valid, retry_validation_reason = _validate_category_output(
+                            category,
+                            retry_result,
+                        )
+                        if retry_valid and not violates_time_of_day(retry_result, slot_hour):
+                            _set_last_ai_status(
+                                used_ai=True,
+                                provider_used="gemini",
+                                gemini_failed=False,
+                                gemini_failure_reason="",
+                            )
+                            return retry_result
+                        if not retry_valid:
+                            validation_reason = retry_validation_reason
+                        else:
+                            validation_reason = "time_guard_rejected"
+                    elif retry_reason:
+                        validation_reason = retry_reason
+                elif category in BUDDHIST_ALMANAC_CATEGORIES:
+                    repair_system, repair_user = _build_buddhist_almanac_repair_prompts(
+                        category=category,
                         now_local=now_local,
                         validation_reason=validation_reason,
                         previous_text=result,
