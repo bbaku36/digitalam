@@ -339,30 +339,39 @@ def _validate_zodiac_horoscope_output(text: str) -> tuple[bool, str]:
     return True, ""
 
 
-def _validate_weekly_zodiac_horoscope_output(text: str) -> tuple[bool, str]:
+def _validate_weekly_almanac_overview_output(text: str) -> tuple[bool, str]:
     lower = text.lower()
-    if "7 хоног" not in lower or ("12 орд" not in lower and "ордын зурхай" not in lower):
-        return False, "missing_weekly_zodiac_title"
+    if "*" in text:
+        return False, "contains_markdown_emphasis"
+    if "12 орд" in lower or "ордын зурхай" in lower:
+        return False, "old_weekly_zodiac_format_detected"
+    if "7 хоног" not in lower or "тойм" not in lower:
+        return False, "missing_weekly_summary_title"
     non_empty_lines = [line.strip() for line in text.splitlines() if line.strip()]
-    if len(non_empty_lines) < 15:
-        return False, "weekly_zodiac_post_too_short"
+    if len(non_empty_lines) < 20:
+        return False, "weekly_summary_post_too_short"
     first_line = non_empty_lines[0].lower()
-    if "7 хоног" not in first_line or ("12 орд" not in first_line and "ордын зурхай" not in first_line):
-        return False, "missing_weekly_zodiac_title_line"
-    if any(marker in lower for marker in ("ерөнхий чиг", "үс засуулахад дөхөм өдөр", "аян замд гарахад дөхөм өдөр")):
-        return False, "old_weekly_buddhist_format_detected"
-
-    heading_lines = 0
-    for sign, (symbol, label, date_range) in zip(APPROVED_ZODIAC_SIGNS, ZODIAC_SIGN_DETAILS_MN):
-        accepted_headings = (
-            f"{symbol} {label} ({date_range})",
-            f"{symbol} {sign} ({date_range})",
-        )
-        if not any(heading in text for heading in accepted_headings):
-            return False, f"missing_heading_{label}"
-        heading_lines += 1
-    if heading_lines != len(ZODIAC_SIGN_DETAILS_MN):
-        return False, "invalid_sign_heading_count"
+    if "7 хоног" not in first_line or "тойм" not in first_line:
+        return False, "missing_weekly_summary_title_line"
+    if not any(line.lower() == "7 хоногийн тойм" for line in non_empty_lines):
+        return False, "missing_weekly_summary_section"
+    for weekday in WEEKDAY_MN:
+        if not any(line.startswith(f"📅 {weekday}") for line in non_empty_lines):
+            return False, f"missing_weekday_{weekday}"
+    if len(re.findall(r"(?im)^үс засуулах\s*:", text)) < 7:
+        return False, "missing_daily_hair_sections"
+    if len(re.findall(r"(?im)^аян зам\s*:", text)) < 7:
+        return False, "missing_daily_travel_sections"
+    if len(re.findall(r"(?im)^үйл хийхэд сайн\s*:", text)) < 7:
+        return False, "missing_daily_action_sections"
+    for heading in (
+        "Үс засуулахад дөхөм өдөр",
+        "Аян замд гарахад дөхөм өдөр",
+        "Үйл хийхэд сайн өдөр",
+    ):
+        if heading.lower() not in lower:
+            slug = re.sub(r"[^a-z0-9]+", "_", heading.encode("ascii", "ignore").decode("ascii")).strip("_")
+            return False, f"missing_heading_{slug or 'weekly_summary'}"
 
     return True, ""
 
@@ -379,7 +388,7 @@ def _validate_category_output(category: str, text: str) -> tuple[bool, str]:
     if category == "zodiac_horoscope":
         return _validate_zodiac_horoscope_output(text)
     if category == "weekly_horoscope":
-        return _validate_weekly_zodiac_horoscope_output(text)
+        return _validate_weekly_almanac_overview_output(text)
 
     if category != "mantra":
         return True, ""
@@ -618,49 +627,42 @@ def _build_zodiac_repair_prompts(
     return system_prompt, _append_variation_seed(user_prompt)
 
 
-def _build_weekly_zodiac_repair_prompts(
+def _build_weekly_almanac_repair_prompts(
     now_local: str,
     validation_reason: str,
     previous_text: str,
 ) -> tuple[str, str]:
     system_prompt = (
-        "You are a Mongolian weekly zodiac horoscope editor. "
+        "You are a Mongolian weekly almanac summary editor. "
         "Return ONLY a Mongolian Facebook post in clean plain text. "
-        "Keep the exact 12-sign structure and exact sign heading order. "
-        "Never address the reader with affectionate or intimate pet names such as "
-        "'хайрт', 'хонгор', 'хонгор минь', 'хайрт минь', 'хонгорхон', or 'зүрх минь'. "
-        "Do not switch to Buddhist almanac language. "
-        "Forbidden weekly Buddhist headings and phrases: "
-        "'Ерөнхий чиг', 'Үс засуулахад дөхөм өдөр', 'Аян замд гарахад дөхөм өдөр', "
-        "'Үйл хийхэд сайн өдөр', 'Цээрлэх зүйл', 'Буян номын', 'мөрөө гаргавал'. "
-        "Do not use markdown emphasis or asterisks."
+        "Do not use zodiac signs, Western astrology, affectionate direct address, markdown emphasis, or asterisks. "
+        "Keep the post in a factual Mongolian weekly summary format based on daily almanac source notes."
     )
     trimmed = previous_text.strip()
     if len(trimmed) > 1400:
         trimmed = trimmed[:1400]
     week_range = _format_week_range(now_local)
     user_prompt = (
-        f"Rewrite this week's 12-sign zodiac horoscope for {now_local}. "
+        f"Rewrite this week's day-by-day almanac summary for {now_local}. "
         f"Previous draft failed with reason: {validation_reason}. "
-        f"Keep the exact title format '7 хоногийн 12 ордын зурхай ({week_range})'. "
-        "Keep exactly these 12 headings in this exact order and exact spelling:\n"
-        "♈ Хонины орд (3/21 - 4/19)\n"
-        "♉ Үхрийн орд (4/20 - 5/20)\n"
-        "♊ Ихрийн орд (5/21 - 6/21)\n"
-        "♋ Мэлхийн орд (6/22 - 7/22)\n"
-        "♌ Арслангийн орд (7/23 - 8/22)\n"
-        "♍ Охины орд (8/23 - 9/22)\n"
-        "♎ Жинлүүрийн орд (9/23 - 10/23)\n"
-        "♏ Хилэнцийн орд (10/24 - 11/21)\n"
-        "♐ Нумын орд (11/22 - 12/21)\n"
-        "♑ Матрын орд (12/22 - 1/19)\n"
-        "♒ Хумхын орд (1/20 - 2/18)\n"
-        "♓ Загасны орд (2/19 - 3/20)\n"
-        "Remove any affectionate direct address and keep the tone neutral, clean, and editorial. "
-        "Each sign must have a short 1-2 sentence paragraph under its heading. "
-        "Do not omit or merge any sign heading. "
-        "Do not include Buddhist weekly sections or any hair/travel/action-day guidance. "
-        "End with a short disclaimer and exactly these hashtags: #7ХоногийнЗурхай #12Орд #ОрдныЗурхай #DigitalLam\n\n"
+        f"Keep the exact title format '7 хоногийн үйл, үс засуулах, аян замын тойм ({week_range})'. "
+        "After one short intro paragraph, include exactly these 7 weekday headings in this exact order:\n"
+        "📅 Даваа (MM.DD)\n"
+        "📅 Мягмар (MM.DD)\n"
+        "📅 Лхагва (MM.DD)\n"
+        "📅 Пүрэв (MM.DD)\n"
+        "📅 Баасан (MM.DD)\n"
+        "📅 Бямба (MM.DD)\n"
+        "📅 Ням (MM.DD)\n"
+        "Under each weekday heading include exactly these three lines:\n"
+        "Үс засуулах: ...\n"
+        "Аян зам: ...\n"
+        "Үйл хийхэд сайн: ...\n"
+        "Then add the exact heading '7 хоногийн тойм' followed by exactly these lines:\n"
+        "Үс засуулахад дөхөм өдөр: ...\n"
+        "Аян замд гарахад дөхөм өдөр: ...\n"
+        "Үйл хийхэд сайн өдөр: ...\n"
+        "Finish with a short disclaimer and exactly these hashtags: #7ХоногийнТойм #ҮсЗасуулах #АянЗам #DigitalLam\n\n"
         "Bad previous draft (for fixing):\n"
         f"{trimmed}\n"
     )
@@ -887,46 +889,47 @@ def build_prompts(
     elif category == "weekly_horoscope":
         week_range = _format_week_range(now_local)
         system_prompt = (
-            "You are a Mongolian weekly zodiac horoscope writer. "
-            "Write a Facebook post in Mongolian for exactly these 12 zodiac signs only: "
-            f"{', '.join(APPROVED_ZODIAC_SIGNS)}. "
-            "Do not use Buddhist almanac sections, Chinese zodiac animals, or markdown emphasis. "
-            "Forbidden headings and phrases: "
-            "'Ерөнхий чиг', 'Үс засуулахад дөхөм өдөр', 'Аян замд гарахад дөхөм өдөр', "
-            "'Үйл хийхэд сайн өдөр', 'Цээрлэх зүйл', 'Буян номын', 'мөрөө гаргавал'. "
+            "You are a Mongolian weekly almanac summary writer. "
+            "Write a Facebook post in Mongolian that turns 7 daily calendar source notes into one clean weekly summary. "
+            "Do not use Western zodiac, 12 signs, Chinese zodiac animals, markdown emphasis, or romantic/intimate address. "
             "Use this structure exactly: "
             "1) title, "
-            "2) one short intro paragraph about the week's overall astrological mood, "
-            "3) 12 sign sections in the same order as listed above, "
-            "4) one short disclaimer, "
-            "5) hashtags. "
-            "Each sign section must have a heading line with the zodiac symbol, Mongolian sign label, and date range, "
-            "followed by a short paragraph of 2-3 sentences. "
-            "If source facts are provided, keep each sign aligned with its supplied GoGo weekly meaning, but rewrite the wording instead of copying it. "
-            "Keep the tone readable, specific, and editorial. Avoid medical, legal, or financial guarantees."
+            "2) one short intro paragraph, "
+            "3) seven day sections from Monday to Sunday, "
+            "4) one short weekly summary section, "
+            "5) one short disclaimer, "
+            "6) hashtags. "
+            "Each weekday section must have a heading line with the weekday and date, then exactly these three lines: "
+            "'Үс засуулах: ...', 'Аян зам: ...', 'Үйл хийхэд сайн: ...'. "
+            "If source facts are provided, keep each weekday aligned with the supplied GoGo daily facts and rewrite them in fresh wording instead of copying long sentences verbatim. "
+            "The tone should be factual, seasoned, and clear."
         )
         user_prompt = (
-            f"Generate this week's 12-sign zodiac horoscope post for {now_local}. "
-            f"Open with the exact title '7 хоногийн 12 ордын зурхай ({week_range})'. "
-            "Then write one short intro paragraph summarizing the week's general tendency across most signs. "
-            "After that, include exactly these 12 sign sections in this exact order and exact heading format:\n"
-            "♈ Хонины орд (3/21 - 4/19)\n"
-            "♉ Үхрийн орд (4/20 - 5/20)\n"
-            "♊ Ихрийн орд (5/21 - 6/21)\n"
-            "♋ Мэлхийн орд (6/22 - 7/22)\n"
-            "♌ Арслангийн орд (7/23 - 8/22)\n"
-            "♍ Охины орд (8/23 - 9/22)\n"
-            "♎ Жинлүүрийн орд (9/23 - 10/23)\n"
-            "♏ Хилэнцийн орд (10/24 - 11/21)\n"
-            "♐ Нумын орд (11/22 - 12/21)\n"
-            "♑ Матрын орд (12/22 - 1/19)\n"
-            "♒ Хумхын орд (1/20 - 2/18)\n"
-            "♓ Загасны орд (2/19 - 3/20)\n"
-            "Each sign must have its heading on one line and a 2-3 sentence paragraph underneath. "
-            "Do not use bullet points or numbering. "
-            "If source facts are provided, use them as the factual basis for each sign paragraph and keep them close to the GoGo weekly meaning. "
-            "Never include any hair-cutting, travel-direction, or ritual-action day guidance. "
-            "Finish with a short disclaimer and exactly these hashtags: #7ХоногийнЗурхай #12Орд #ОрдныЗурхай #DigitalLam"
+            f"Generate this week's day-by-day almanac summary post for {now_local}. "
+            f"Open with the exact title '7 хоногийн үйл, үс засуулах, аян замын тойм ({week_range})'. "
+            "Then write one short intro paragraph saying this is a week-at-a-glance summary. "
+            "After that, include exactly these 7 day sections in this exact order and exact heading format:\n"
+            "📅 Даваа (MM.DD)\n"
+            "📅 Мягмар (MM.DD)\n"
+            "📅 Лхагва (MM.DD)\n"
+            "📅 Пүрэв (MM.DD)\n"
+            "📅 Баасан (MM.DD)\n"
+            "📅 Бямба (MM.DD)\n"
+            "📅 Ням (MM.DD)\n"
+            "Under each heading, include exactly these lines in this order:\n"
+            "Үс засуулах: ...\n"
+            "Аян зам: ...\n"
+            "Үйл хийхэд сайн: ...\n"
+            "Do not add bullets or numbering. "
+            "Use the supplied GoGo daycolor facts for each weekday. The hair line should reflect the daily haircut omen or suitability. "
+            "The travel line should reflect that day's travel direction guidance. "
+            "The action line should reflect that day's good activities. "
+            "After the 7 daily blocks, add the exact heading '7 хоногийн тойм' and then exactly these three lines:\n"
+            "Үс засуулахад дөхөм өдөр: ...\n"
+            "Аян замд гарахад дөхөм өдөр: ...\n"
+            "Үйл хийхэд сайн өдөр: ...\n"
+            "Choose the summary days based on the provided 7 daily source facts, not at random. "
+            "Finish with a short disclaimer and exactly these hashtags: #7ХоногийнТойм #ҮсЗасуулах #АянЗам #DigitalLam"
         )
     else:
         return None
@@ -1284,7 +1287,7 @@ def ai_generate_generic_post(
                     elif retry_reason:
                         validation_reason = retry_reason
                 elif category == "weekly_horoscope":
-                    repair_system, repair_user = _build_weekly_zodiac_repair_prompts(
+                    repair_system, repair_user = _build_weekly_almanac_repair_prompts(
                         now_local=now_local,
                         validation_reason=validation_reason,
                         previous_text=result,
@@ -1451,7 +1454,7 @@ def ai_generate_generic_post(
                     elif retry_reason:
                         validation_reason = retry_reason
                 elif category == "weekly_horoscope":
-                    repair_system, repair_user = _build_weekly_zodiac_repair_prompts(
+                    repair_system, repair_user = _build_weekly_almanac_repair_prompts(
                         now_local=now_local,
                         validation_reason=validation_reason,
                         previous_text=result,
@@ -1582,7 +1585,7 @@ def ai_generate_generic_post(
                     elif retry_reason:
                         validation_reason = retry_reason
                 elif category == "weekly_horoscope":
-                    repair_system, repair_user = _build_weekly_zodiac_repair_prompts(
+                    repair_system, repair_user = _build_weekly_almanac_repair_prompts(
                         now_local=now_local,
                         validation_reason=validation_reason,
                         previous_text=result,
@@ -1710,7 +1713,7 @@ def ai_generate_generic_post(
                     elif retry_reason:
                         validation_reason = retry_reason
                 elif category == "weekly_horoscope":
-                    repair_system, repair_user = _build_weekly_zodiac_repair_prompts(
+                    repair_system, repair_user = _build_weekly_almanac_repair_prompts(
                         now_local=now_local,
                         validation_reason=validation_reason,
                         previous_text=result,

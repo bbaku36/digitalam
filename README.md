@@ -12,7 +12,7 @@ This project auto-posts Mongolian Facebook content with fixed time slots:
 - `tomorrow_prep`: маргаашийн бэлтгэл (1 зөвлөмж + ерөөл)
 - `goodnight`: богино амгалан шөнийн пост
 - `weekly`: 7 хоногийн зөвлөмж (үс засуулах өдөр + хол замд гарах өдөр + үйл хийх өдөр), pin хийхэд зориулагдсан
-- `weekly_horoscope`: 7 хоногт 1 удаа `gogo.mn`-ийн source дээр суурилсан 12 ордын 7 хоногийн зурхай
+- `weekly_horoscope`: 7 хоногт 1 удаа `gogo.mn`-ийн өдөр тутмын эх сурвалж дээр суурилсан 7 хоногийн `үс засуулах / аян зам / үйл хийх` тойм
 
 ## Files
 
@@ -58,7 +58,7 @@ This project auto-posts Mongolian Facebook content with fixed time slots:
 4. Ensure workflow file exists:
    - `.github/workflows/facebook-autopost.yml`
    - `.github/workflows/facebook-weekly-pin.yml` (optional weekly pinned guidance)
-   - `.github/workflows/facebook-weekly-horoscope.yml` (optional weekly 12 ордын зурхай post)
+   - `.github/workflows/facebook-weekly-horoscope.yml` (optional weekly day-by-day almanac summary post)
 5. Run once manually:
    - `Actions -> Facebook Auto Post -> Run workflow`
    - `force_slot_hour=8` өгвөл `08:00`-ийн `zodiac_horoscope` post-ийг шууд ажиллуулж болно
@@ -123,4 +123,5 @@ After that, it runs automatically by schedule (Ulaanbaatar 06:00, 08:00, 14:00, 
 - Default behavior is `REQUIRE_AI_CONTENT=1`: AI generation fail үед fallback руу унахгүй, run алдаатай зогсоно.
 - Хэрэв fallback-ийг зориуд ашиглах шаардлагатай бол зөвхөн explicit байдлаар `REQUIRE_AI_CONTENT=0` гэж өгч асаана.
 - `06:00`, `08:00`, мөн `weekly_horoscope` нь эхлээд `gogo.mn`-оос source facts татаж, дараа нь AI-аар rewrite хийдэг.
+- `weekly_horoscope` нь `https://gogo.mn/horoscope/daycolor` endpoint-оос Даваа-Нямын 7 өдрийн мэдээллийг тус бүр авч нэг weekly summary болгодог.
 - Node dependency хэрэгтэй тул local болон CI дээр `npm ci` ажиллуулна.

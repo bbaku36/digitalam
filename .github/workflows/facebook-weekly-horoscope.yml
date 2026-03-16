@@ -1,4 +1,4 @@
-name: Facebook Weekly Horoscope
+name: Facebook Weekly Almanac Summary
 
 on:
   schedule:
@@ -51,7 +51,7 @@ jobs:
       - name: Ensure state directory
         run: mkdir -p .state
 
-      - name: Post manual weekly horoscope
+      - name: Post manual weekly summary
         if: ${{ inputs.manual_post_file != '' }}
         env:
           FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
@@ -87,7 +87,7 @@ jobs:
               print(response.read().decode("utf-8"))
           PY
 
-      - name: Run weekly zodiac horoscope post
+      - name: Run weekly almanac summary post
         if: ${{ inputs.manual_post_file == '' }}
         env:
           FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}

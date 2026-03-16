@@ -6,6 +6,7 @@ import json
 import re
 import shutil
 import subprocess
+from datetime import datetime, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -72,6 +73,11 @@ def _run_gogo_scraper(mode: str, date_label: str) -> dict | None:
         return None
 
 
+def _week_start(date_only: str) -> datetime:
+    parsed = datetime.strptime(date_only, "%Y-%m-%d")
+    return parsed - timedelta(days=parsed.weekday())
+
+
 def build_gogo_source_context(category: str, now_local: str) -> str | None:
     date_only = now_local.split()[0].strip()
     if not date_only:
@@ -126,25 +132,58 @@ def build_gogo_source_context(category: str, now_local: str) -> str | None:
         return "\n".join(context_lines).strip()
 
     if category == "weekly_horoscope":
-        payload = _run_gogo_scraper("western_week", date_only)
-        if not payload:
+        monday = _week_start(date_only)
+        sunday = monday + timedelta(days=6)
+        entries: list[dict] = []
+        for offset in range(7):
+            current = monday + timedelta(days=offset)
+            payload = _run_gogo_scraper("calendar_day", current.strftime("%Y-%m-%d"))
+            if payload:
+                entries.append(payload)
+
+        if len(entries) < 7:
             return None
 
         context_lines = [
-            "Source: GoGo Өрнийн зурхай / Энэ долоо хоног (use these sign texts as source material, but rewrite in fresh wording).",
-            f"Source URL: {payload.get('source_url', 'https://gogo.mn/horoscope/western/week')}",
+            "Source: GoGo Цаг тооны бичиг / 7 хоногийн өдөр тутмын эх сурвалж (use these facts as source material, but rewrite in fresh wording).",
+            f"Source URL: {entries[0].get('source_url', 'https://gogo.mn/horoscope')}",
+            f"Source endpoint: {entries[0].get('source_endpoint', 'https://gogo.mn/horoscope/daycolor')}",
+            (
+                "Week range: "
+                f"{monday.year}.{monday.month:02d}.{monday.day:02d}-"
+                f"{sunday.year}.{sunday.month:02d}.{sunday.day:02d}"
+            ),
         ]
-        if payload.get("source_range"):
-            context_lines.append(f"Source range: {payload['source_range']}")
-        for entry in payload.get("entries", []):
-            sign = str(entry.get("sign", "")).strip()
-            text = _condense_sign_source(
-                str(entry.get("text", "")).strip(),
-                max_sentences=2,
-                max_chars=220,
-            )
-            if sign and text:
-                context_lines.append(f"{sign}: {text}")
+        for entry in entries:
+            weekday = str(entry.get("weekday", "")).strip()
+            gregorian_date = str(entry.get("gregorian_date", "")).strip()
+            date_label = gregorian_date.replace(".", "-") if gregorian_date else ""
+            if weekday:
+                header = f"[{weekday} {date_label or entry.get('source_date', '')}]"
+                context_lines.append(header)
+            if entry.get("bilgiin_day") and entry.get("lunar_day_text"):
+                context_lines.append(
+                    f"Bilgiin line: Билгийн тооллын {entry['bilgiin_day']}. {entry['lunar_day_text']}"
+                )
+            if entry.get("haircut_omen"):
+                context_lines.append(f"Haircut omen: {entry['haircut_omen']}")
+            if entry.get("haircut_line"):
+                context_lines.append(f"Haircut suitability: {entry['haircut_line']}")
+            if entry.get("travel"):
+                context_lines.append(f"Travel guidance: {entry['travel']}")
+            if entry.get("good_activities"):
+                context_lines.append(f"Good activities: {entry['good_activities']}")
+            if entry.get("caution"):
+                context_lines.append(f"Caution: {entry['caution']}")
+            if entry.get("summary"):
+                context_lines.append(
+                    "Summary paragraph: "
+                    + _condense_sign_source(
+                        str(entry["summary"]).strip(),
+                        max_sentences=4,
+                        max_chars=360,
+                    )
+                )
         return "\n".join(context_lines).strip()
 
     return None

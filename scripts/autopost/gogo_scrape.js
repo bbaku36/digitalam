@@ -51,6 +51,23 @@ async function loadRenderedText(url) {
   return text;
 }
 
+async function postDaycolorHtml(targetDate) {
+  const response = await fetch("https://gogo.mn/horoscope/daycolor", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+      "X-Requested-With": "XMLHttpRequest",
+    },
+    body: new URLSearchParams({ date: targetDate }).toString(),
+  });
+
+  if (!response.ok) {
+    throw new Error(`daycolor_http_${response.status}`);
+  }
+
+  return response.text();
+}
+
 function parseCalendar(text) {
   const start = text.indexOf("Билгийн тооллын");
   if (start < 0) {
@@ -176,6 +193,69 @@ function parseWesternWeek(text) {
   };
 }
 
+function parseCalendarDayHtml(html, targetDate) {
+  const virtualConsole = new VirtualConsole();
+  virtualConsole.on("jsdomError", () => {});
+  const dom = new JSDOM(`<body>${html}</body>`, { virtualConsole });
+  const block = normalizeText(dom.window.document.body.textContent || "");
+  dom.window.close();
+
+  if (!block) {
+    throw new Error("calendar_day_block_not_found");
+  }
+
+  const info = {
+    source_url: "https://gogo.mn/horoscope",
+    source_endpoint: "https://gogo.mn/horoscope/daycolor",
+    source_date: targetDate,
+    block,
+  };
+
+  const dateMatch = block.match(
+    /Билгийн тооллын\s+(\d+)\s+(\d{4}\.\d{2}\.\d{2})\s*\/\s*([А-Яа-яӨөҮүЁё]+)\s+гараг\s+(.+?)\s+Үс засуулвал:\s*(.+?)\s+Наран ургах,\s*шингэх:\s*([0-9\.\-]+)/u,
+  );
+  if (dateMatch) {
+    info.bilgiin_day = dateMatch[1];
+    info.gregorian_date = dateMatch[2];
+    info.weekday = dateMatch[3];
+    info.lunar_day_text = normalizeText(dateMatch[4]);
+    info.haircut_omen = normalizeText(dateMatch[5]);
+    info.sun_times = normalizeText(dateMatch[6]);
+  }
+
+  const summaryMatch = block.match(/Аргын тооллын\s+.+$/u);
+  if (summaryMatch) {
+    info.summary = normalizeText(summaryMatch[0]);
+  }
+
+  const goodTimesMatch = block.match(/Өдрийн сайн цаг нь\s+(.+?)\s+болой\./u);
+  if (goodTimesMatch) {
+    info.good_times = normalizeText(goodTimesMatch[1]);
+  }
+
+  const travelMatch = block.match(/Хол газар яваар одогсод\s+(.+?)\./u);
+  if (travelMatch) {
+    info.travel = normalizeText(travelMatch[1]);
+  }
+
+  const haircutLineMatch = block.match(/Үс шинээр үргээлгэх буюу засуулахад\s+(.+?)\./u);
+  if (haircutLineMatch) {
+    info.haircut_line = normalizeText(haircutLineMatch[1]);
+  }
+
+  const goodActivitiesMatch = block.match(/Эл өдөр\s+(.+?)\s+сайн\./u);
+  if (goodActivitiesMatch) {
+    info.good_activities = normalizeText(goodActivitiesMatch[1]);
+  }
+
+  const cautionMatch = block.match(/Эл өдөр\s+.+?\s+сайн\.\s+(.+?)\s+муу\./u);
+  if (cautionMatch) {
+    info.caution = normalizeText(cautionMatch[1]);
+  }
+
+  return info;
+}
+
 async function main() {
   if (!MODE) {
     throw new Error("missing_mode");
@@ -199,6 +279,12 @@ async function main() {
   if (MODE === "western_week") {
     const text = await loadRenderedText("https://gogo.mn/horoscope/western/week");
     process.stdout.write(`${JSON.stringify(parseWesternWeek(text), null, 2)}\n`);
+    return;
+  }
+
+  if (MODE === "calendar_day") {
+    const html = await postDaycolorHtml(TARGET_DATE);
+    process.stdout.write(`${JSON.stringify(parseCalendarDayHtml(html, TARGET_DATE), null, 2)}\n`);
     return;
   }
 
