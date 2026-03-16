@@ -68,6 +68,53 @@ async function postDaycolorHtml(targetDate) {
   return response.text();
 }
 
+function populateSummaryActions(info) {
+  const block = info.summary || info.block || "";
+
+  const explicitGoodActivitiesMatch = block.match(/Эл өдөр\s+(.+?)\s+сайн\./u);
+  if (explicitGoodActivitiesMatch) {
+    info.good_activities = normalizeText(explicitGoodActivitiesMatch[1]);
+  }
+
+  const explicitCautionMatch = block.match(/Эл өдөр\s+.+?\s+сайн\.\s+(.+?)\s+муу\./u);
+  if (explicitCautionMatch) {
+    info.caution = normalizeText(explicitCautionMatch[1]);
+  }
+
+  if (info.good_activities && info.caution) {
+    return;
+  }
+
+  const sentences = block
+    .split(".")
+    .map((item) => normalizeText(item))
+    .filter(Boolean);
+
+  if (!info.good_activities) {
+    const goodSentence = sentences.find(
+      (item) =>
+        item.includes("сайн") &&
+        !item.includes("аливаа үйлийг хийхэд эерэг сайн") &&
+        !item.includes("сөрөг муу нөлөөтэй"),
+    );
+    if (goodSentence) {
+      info.good_activities = normalizeText(
+        goodSentence
+          .replace(/^Эл өдөр\s+/u, "")
+          .replace(/^Үл зохилдох\s+/u, "")
+          .replace(/\s+сайн$/u, ""),
+      );
+    }
+  }
+
+  if (!info.caution) {
+    const cautionSentence = sentences.find((item) => item.includes("муу"));
+    if (cautionSentence) {
+      info.caution = normalizeText(cautionSentence.replace(/\s+муу$/u, ""));
+    }
+  }
+}
+
 function parseCalendar(text) {
   const start = text.indexOf("Билгийн тооллын");
   if (start < 0) {
@@ -120,6 +167,8 @@ function parseCalendar(text) {
   if (haircutLineMatch) {
     info.haircut_line = normalizeText(haircutLineMatch[1]);
   }
+
+  populateSummaryActions(info);
 
   return info;
 }
@@ -243,15 +292,7 @@ function parseCalendarDayHtml(html, targetDate) {
     info.haircut_line = normalizeText(haircutLineMatch[1]);
   }
 
-  const goodActivitiesMatch = block.match(/Эл өдөр\s+(.+?)\s+сайн\./u);
-  if (goodActivitiesMatch) {
-    info.good_activities = normalizeText(goodActivitiesMatch[1]);
-  }
-
-  const cautionMatch = block.match(/Эл өдөр\s+.+?\s+сайн\.\s+(.+?)\s+муу\./u);
-  if (cautionMatch) {
-    info.caution = normalizeText(cautionMatch[1]);
-  }
+  populateSummaryActions(info);
 
   return info;
 }
