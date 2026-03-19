@@ -71,17 +71,17 @@ async function postDaycolorHtml(targetDate) {
 function populateSummaryActions(info) {
   const block = info.summary || info.block || "";
 
+  const explicitBadActivitiesMatch = block.match(/([А-Яа-яӨөҮүЁё,\s]+?хад)\s+муу\./u);
+  if (explicitBadActivitiesMatch) {
+    info.bad_activities = normalizeText(explicitBadActivitiesMatch[1]);
+  }
+
   const explicitGoodActivitiesMatch = block.match(/Эл өдөр\s+(.+?)\s+сайн\./u);
   if (explicitGoodActivitiesMatch) {
     info.good_activities = normalizeText(explicitGoodActivitiesMatch[1]);
   }
 
-  const explicitCautionMatch = block.match(/Эл өдөр\s+.+?\s+сайн\.\s+(.+?)\s+муу\./u);
-  if (explicitCautionMatch) {
-    info.caution = normalizeText(explicitCautionMatch[1]);
-  }
-
-  if (info.good_activities && info.caution) {
+  if (info.good_activities && info.bad_activities && info.caution) {
     return;
   }
 
@@ -107,10 +107,21 @@ function populateSummaryActions(info) {
     }
   }
 
+  if (!info.bad_activities) {
+    const badSentence = sentences.find(
+      (item) => item.includes("муу") && !item.includes("сөрөг муу нөлөөтэй"),
+    );
+    if (badSentence) {
+      info.bad_activities = normalizeText(badSentence.replace(/\s+муу$/u, ""));
+    }
+  }
+
   if (!info.caution) {
-    const cautionSentence = sentences.find((item) => item.includes("муу"));
+    const cautionSentence = sentences.find(
+      (item) => item.includes("сөрөг муу нөлөөтэй") || item.includes("хянамгай хандаж"),
+    );
     if (cautionSentence) {
-      info.caution = normalizeText(cautionSentence.replace(/\s+муу$/u, ""));
+      info.caution = normalizeText(cautionSentence);
     }
   }
 }

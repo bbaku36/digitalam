@@ -120,6 +120,12 @@ def build_gogo_source_context(category: str, now_local: str) -> str | None:
             context_lines.append(f"Travel direction: {payload['travel']}")
         if payload.get("haircut_line"):
             context_lines.append(f"Haircut line: {payload['haircut_line']}")
+        if payload.get("good_activities"):
+            context_lines.append(f"Good activities: {payload['good_activities']}")
+        if payload.get("bad_activities"):
+            context_lines.append(f"Bad activities: {payload['bad_activities']}")
+        if payload.get("caution"):
+            context_lines.append(f"Caution: {payload['caution']}")
         if payload.get("summary"):
             context_lines.append(f"Summary paragraph: {payload['summary']}")
         return "\n".join(context_lines).strip()
@@ -183,6 +189,8 @@ def build_gogo_source_context(category: str, now_local: str) -> str | None:
                 context_lines.append(f"Travel guidance: {entry['travel']}")
             if entry.get("good_activities"):
                 context_lines.append(f"Good activities: {entry['good_activities']}")
+            if entry.get("bad_activities"):
+                context_lines.append(f"Bad activities: {entry['bad_activities']}")
             if entry.get("caution"):
                 context_lines.append(f"Caution: {entry['caution']}")
             if entry.get("summary"):

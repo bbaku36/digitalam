@@ -6,7 +6,7 @@ import os
 import re
 from datetime import timedelta
 
-from .ai import ai_generate_generic_post
+from .ai import ai_generate_generic_post, ai_polish_horoscope_source_fields
 from .constants import (
     EVENING_INSIGHTS_MN,
     MANTRA_LIBRARY_MN,
@@ -165,6 +165,112 @@ def _normalize_horoscope_post(text: str, date_intro: str) -> str:
         ]
     )
     return "\n".join(cleaned_lines).strip()
+
+
+def _sentence_case(value: str) -> str:
+    cleaned = value.strip()
+    if not cleaned:
+        return ""
+    return cleaned[0].upper() + cleaned[1:]
+
+
+def build_horoscope_post_from_source_context(
+    now_ctx,
+    source_context: str | None,
+    *,
+    general_text_override: str | None = None,
+    selected_good_activities: list[str] | None = None,
+) -> str:
+    if not source_context:
+        return ""
+
+    date_intro = format_mongolian_day_intro(now_ctx)
+    biligiin_line = _extract_source_value(source_context, "Bilgiin line: ")
+    suudal = _extract_source_value(source_context, "Suudal: ")
+    favorable = _normalize_year_line(_extract_source_value(source_context, "Favorable years: "))
+    caution_years = _normalize_year_line(_extract_source_value(source_context, "Caution years: "))
+    haircut_omen = _extract_source_value(source_context, "Haircut omen: ")
+    haircut_line = _extract_source_value(source_context, "Haircut line: ")
+    travel = _extract_source_value(source_context, "Travel direction: ")
+    good_activities = _extract_source_value(source_context, "Good activities: ").rstrip(".")
+    bad_activities = _extract_source_value(source_context, "Bad activities: ").rstrip(".")
+    caution = _extract_source_value(source_context, "Caution: ")
+
+    general_text = "Эл өдөр аливаа үйлд хянамгай хандаж, биеэ энхрийлүүштэй."
+    if caution:
+        if " тул " in caution:
+            general_text = _sentence_case(caution.split(" тул ", 1)[1].strip().rstrip(".")) + "."
+        else:
+            general_text = _sentence_case(caution.rstrip(".")) + "."
+    if general_text_override:
+        general_text = general_text_override.strip().rstrip(".") + "."
+
+    hair_text = ""
+    if haircut_omen:
+        hair_text = f"Үс засуулвал {haircut_omen.rstrip('.')}."
+    elif haircut_line:
+        hair_text = f"Үс шинээр үргээлгэх буюу засуулахад {haircut_line.rstrip('.')}."
+
+    travel_text = ""
+    if travel:
+        travel_text = f"Хол газар яваар одогсод {travel.rstrip('.')}."
+
+    action_text = ""
+    if selected_good_activities:
+        selected_value = ", ".join(item.strip() for item in selected_good_activities if item.strip())
+        if selected_value:
+            action_text = f"Эл өдөр {selected_value} зэрэг үйлд сайн."
+    elif good_activities:
+        action_text = f"Эл өдөр {good_activities} зэрэг үйлд сайн."
+
+    caution_text = ""
+    if bad_activities:
+        caution_text = f"{bad_activities} муу."
+
+    lines = [
+        date_intro,
+        "Өдрийн үс засуулах, аян зам, үйл хийхийн зурхай.",
+    ]
+    if biligiin_line:
+        lines.append(biligiin_line)
+    lines.extend(
+        [
+            "",
+            "🌿 Өдрийн ерөнхий төлөв",
+            general_text,
+        ]
+    )
+    if suudal:
+        lines.append(f"Суудал: {suudal}")
+    lines.extend(
+        [
+            "",
+            "✂️ Үс засуулах тохиромж",
+            hair_text or "Үс засуулах тухай мэдээлэл олдсонгүй.",
+            "",
+            "🛣️ Аян замд гарах",
+            travel_text or "Аян замын чиглэлийн мэдээлэл олдсонгүй.",
+            "",
+            "📿 Үйл хийхэд сайн",
+            action_text or "Өдрийн сайн үйлийн мэдээлэл олдсонгүй.",
+        ]
+    )
+    if favorable:
+        lines.extend(["", f"✅ Сайн жилтэн: {favorable}"])
+    if caution_years:
+        lines.append(f"⚠️ Болгоомжлох жилтэн: {caution_years}")
+    lines.extend(
+        [
+            "",
+            "⚠️ Цээрлэх зүйл",
+            caution_text or "Цээрлэх үйлийн мэдээлэл олдсонгүй.",
+            "",
+            HOROSCOPE_FIXED_DISCLAIMER,
+            "",
+            "#ӨдрийнЗурхай #ҮсЗасуулах #АянЗамдГарах #замдгарах",
+        ]
+    )
+    return "\n".join(lines).strip()
 
 
 def build_insight_post_fallback() -> str:
@@ -562,10 +668,26 @@ def build_weekly_horoscope_post_fallback() -> str:
     return "\n".join(lines).strip()
 
 
-def build_category_post(category: str) -> str:
+def build_category_post_bundle(category: str) -> tuple[str, str | None]:
     now_ctx = content_context_now()
     now_local = now_ctx.strftime("%Y-%m-%d %H:%M")
     source_context = build_gogo_source_context(category, now_local)
+    if category == "horoscope":
+        if not source_context:
+            return "", source_context
+        polished = ai_polish_horoscope_source_fields(now_local, source_context)
+        message = build_horoscope_post_from_source_context(
+            now_ctx,
+            source_context,
+            general_text_override=(str(polished.get("general_text", "")).strip() if polished else None),
+            selected_good_activities=(
+                [str(item).strip() for item in polished.get("selected_good_activities", [])]
+                if polished
+                else None
+            ),
+        )
+        return message, source_context
+
     ai_post = ai_generate_generic_post(
         category,
         now_local,
@@ -574,37 +696,48 @@ def build_category_post(category: str) -> str:
     )
     if ai_post:
         if category == "horoscope":
-            return _normalize_horoscope_post(
-                _inject_horoscope_year_lines(ai_post, source_context),
-                format_mongolian_day_intro(now_ctx),
+            return (
+                _normalize_horoscope_post(
+                    _inject_horoscope_year_lines(ai_post, source_context),
+                    format_mongolian_day_intro(now_ctx),
+                ),
+                source_context,
             )
-        return ai_post
+        return ai_post, source_context
     if category in GOGO_SOURCE_REQUIRED_CATEGORIES and not source_context:
-        return ""
+        return "", source_context
 
     if category == "insight":
-        return build_insight_post_fallback()
+        return build_insight_post_fallback(), source_context
     if category == "horoscope":
-        return _normalize_horoscope_post(
-            _inject_horoscope_year_lines(build_horoscope_post_fallback(), source_context),
-            format_mongolian_day_intro(now_ctx),
+        return (
+            _normalize_horoscope_post(
+                _inject_horoscope_year_lines(build_horoscope_post_fallback(), source_context),
+                format_mongolian_day_intro(now_ctx),
+            ),
+            source_context,
         )
     if category == "zodiac_horoscope":
-        return build_zodiac_horoscope_post_fallback()
+        return build_zodiac_horoscope_post_fallback(), source_context
     if category == "daily_guidance":
-        return build_daily_guidance_post_fallback()
+        return build_daily_guidance_post_fallback(), source_context
     if category == "mantra":
-        return build_mantra_post_fallback()
+        return build_mantra_post_fallback(), source_context
     if category == "messenger_cta":
-        return build_messenger_cta_post_fallback()
+        return build_messenger_cta_post_fallback(), source_context
     if category == "evening_insight":
-        return build_evening_insight_post_fallback()
+        return build_evening_insight_post_fallback(), source_context
     if category == "tomorrow_prep":
-        return build_tomorrow_prep_post_fallback()
+        return build_tomorrow_prep_post_fallback(), source_context
     if category == "goodnight":
-        return build_goodnight_post_fallback()
+        return build_goodnight_post_fallback(), source_context
     if category == "fact":
-        return build_fact_post_fallback()
+        return build_fact_post_fallback(), source_context
     if category == "weekly_horoscope":
-        return build_weekly_horoscope_post_fallback()
-    return build_weekly_post_fallback()
+        return build_weekly_horoscope_post_fallback(), source_context
+    return build_weekly_post_fallback(), source_context
+
+
+def build_category_post(category: str) -> str:
+    message, _source_context = build_category_post_bundle(category)
+    return message

@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import json
+import mimetypes
+import uuid
 import urllib.error
 import urllib.parse
 import urllib.request
+from pathlib import Path
 from typing import Any, Dict, List
 
 from .env import env_flag
@@ -27,6 +30,58 @@ def post_to_facebook(page_id: str, page_access_token: str, message: str) -> Dict
         body = response.read().decode("utf-8")
 
     return json.loads(body)
+
+
+def post_photo_to_facebook(
+    page_id: str,
+    page_access_token: str,
+    image_path: str | Path,
+    message: str = "",
+) -> Dict[str, Any]:
+    path = Path(image_path)
+    if not path.exists():
+        raise FileNotFoundError(path)
+
+    boundary = f"----CodexBoundary{uuid.uuid4().hex}"
+    mime_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+    image_bytes = path.read_bytes()
+
+    parts: list[bytes] = []
+    fields = {
+        "access_token": page_access_token,
+        "published": "true",
+    }
+    if message.strip():
+        fields["message"] = message.strip()
+
+    for name, value in fields.items():
+        parts.append(f"--{boundary}\r\n".encode("utf-8"))
+        parts.append(
+            f'Content-Disposition: form-data; name="{name}"\r\n\r\n{value}\r\n'.encode("utf-8")
+        )
+
+    parts.append(f"--{boundary}\r\n".encode("utf-8"))
+    parts.append(
+        (
+            f'Content-Disposition: form-data; name="source"; filename="{path.name}"\r\n'
+            f"Content-Type: {mime_type}\r\n\r\n"
+        ).encode("utf-8")
+    )
+    parts.append(image_bytes)
+    parts.append(b"\r\n")
+    parts.append(f"--{boundary}--\r\n".encode("utf-8"))
+
+    body = b"".join(parts)
+    req = urllib.request.Request(
+        f"https://graph.facebook.com/{page_id}/photos",
+        data=body,
+        method="POST",
+        headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+    )
+    with urlopen_with_retry(req, 60, "Facebook photo post request") as response:
+        response_body = response.read().decode("utf-8")
+
+    return json.loads(response_body)
 
 
 def set_post_pin_state(access_token: str, post_id: str, is_pinned: bool) -> Dict[str, Any]:

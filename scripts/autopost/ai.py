@@ -184,6 +184,15 @@ def _is_rate_limited_http_error(code: int, details: str) -> bool:
     return code == 429 or "too many requests" in low or "resource_exhausted" in low
 
 
+def _extract_source_value(source_context: str | None, prefix: str) -> str:
+    if not source_context:
+        return ""
+    for line in source_context.splitlines():
+        if line.startswith(prefix):
+            return line[len(prefix) :].strip()
+    return ""
+
+
 def apply_time_context(user_prompt: str, slot_hour: int | None) -> str:
     if slot_hour is None:
         return user_prompt
@@ -1224,6 +1233,185 @@ def call_gemini(
 
     _save_gemini_next_index((start_index + 1) % max(1, total))
     return None, ";".join(reasons) if reasons else "gemini_all_keys_failed"
+
+
+def _extract_json_object(raw: str) -> dict | None:
+    cleaned = raw.strip()
+    if cleaned.startswith("```"):
+        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
+        cleaned = re.sub(r"\s*```$", "", cleaned)
+    match = re.search(r"\{.*\}", cleaned, re.S)
+    if not match:
+        return None
+    try:
+        payload = json.loads(match.group(0))
+        return payload if isinstance(payload, dict) else None
+    except json.JSONDecodeError:
+        return None
+
+
+def _normalize_activity_items_from_source(source_context: str | None) -> list[str]:
+    if not source_context:
+        return []
+    value = ""
+    for line in source_context.splitlines():
+        if line.startswith("Good activities: "):
+            value = line[len("Good activities: ") :].strip()
+            break
+    if not value:
+        return []
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def ai_polish_horoscope_source_fields(
+    now_local: str,
+    source_context: str | None,
+    timeout_sec: int = 25,
+) -> dict[str, object] | None:
+    if not source_context:
+        _set_last_ai_status(
+            used_ai=False,
+            provider_used="",
+            gemini_failed=False,
+            gemini_failure_reason="missing_gogo_source_context",
+        )
+        return None
+
+    provider = os.getenv("AI_PROVIDER", "").strip().lower()
+    allowed_source_value = _extract_source_value(source_context, "Good activities: ")
+    allowed_items = _normalize_activity_items_from_source(source_context)
+    if not allowed_items:
+        _set_last_ai_status(
+            used_ai=False,
+            provider_used=provider,
+            gemini_failed=False,
+            gemini_failure_reason="missing_source_good_activities",
+        )
+        return None
+
+    system_prompt = (
+        "You are a careful Mongolian almanac editor. "
+        "Return JSON only. "
+        "Do not invent or alter facts. "
+        "You may only do two edits: "
+        "1) write one short Mongolian sentence for the day's general overview, "
+        "2) choose exactly 3 or 4 items from the provided good-activities list. "
+        "The chosen activity items must be copied exactly from the provided list, word for word."
+    )
+    user_prompt = (
+        f"Today is {now_local}. "
+        "Using only the source facts below, return this JSON shape exactly: "
+        '{"general_text":"...","selected_good_activities":["...","...","..."]}. '
+        "Rules: "
+        "The general_text must be one short sentence in natural Mongolian and should summarize the day's overall caution or tone without adding new facts. "
+        "selected_good_activities must contain exactly 3 or 4 entries copied exactly from the provided good-activities list. "
+        "No markdown. No explanation. JSON only.\n\n"
+        f"Source facts:\n{source_context}"
+    )
+
+    result: str | None = None
+    reason = ""
+    if provider == "gemini":
+        result, reason = call_gemini(system_prompt, user_prompt, "horoscope_source_polish", timeout_sec, 0.2)
+    elif provider == "openai":
+        result, reason = call_openai(system_prompt, user_prompt, "horoscope_source_polish", timeout_sec, 0.2)
+    elif provider == "deepseek":
+        result, reason = call_deepseek(system_prompt, user_prompt, "horoscope_source_polish", timeout_sec, 0.2)
+    else:
+        _set_last_ai_status(
+            used_ai=False,
+            provider_used=provider,
+            gemini_failed=False,
+            gemini_failure_reason="unsupported_ai_provider",
+        )
+        return None
+
+    if not result:
+        _set_last_ai_status(
+            used_ai=False,
+            provider_used=provider,
+            gemini_failed=(provider == "gemini"),
+            gemini_failure_reason=reason or "ai_polish_failed",
+            deepseek_failed=(provider == "deepseek"),
+            deepseek_failure_reason=reason if provider == "deepseek" else "",
+        )
+        return None
+
+    payload = _extract_json_object(result)
+    if not payload:
+        _set_last_ai_status(
+            used_ai=False,
+            provider_used=provider,
+            gemini_failed=(provider == "gemini"),
+            gemini_failure_reason="invalid_json_from_ai_polish",
+            deepseek_failed=(provider == "deepseek"),
+            deepseek_failure_reason="invalid_json_from_ai_polish" if provider == "deepseek" else "",
+        )
+        return None
+
+    general_text = str(payload.get("general_text", "")).strip()
+    selected = payload.get("selected_good_activities", [])
+    if not isinstance(selected, list):
+        selected = []
+    selected_items = [str(item).strip() for item in selected if str(item).strip()]
+
+    allowed_lookup = {item.casefold(): item for item in allowed_items}
+    allowed_source_casefold = allowed_source_value.casefold()
+    normalized_selected: list[str] = []
+    for item in selected_items:
+        matched = allowed_lookup.get(item.casefold())
+        if not matched and item.casefold() in allowed_source_casefold:
+            matched = item
+        if not matched:
+            _set_last_ai_status(
+                used_ai=False,
+                provider_used=provider,
+                gemini_failed=(provider == "gemini"),
+                gemini_failure_reason="ai_polish_selected_unknown_activity",
+                deepseek_failed=(provider == "deepseek"),
+                deepseek_failure_reason="ai_polish_selected_unknown_activity" if provider == "deepseek" else "",
+            )
+            return None
+        if matched not in normalized_selected:
+            normalized_selected.append(matched)
+
+    if len(normalized_selected) < 3:
+        _set_last_ai_status(
+            used_ai=False,
+            provider_used=provider,
+            gemini_failed=(provider == "gemini"),
+            gemini_failure_reason="ai_polish_too_few_activities",
+            deepseek_failed=(provider == "deepseek"),
+            deepseek_failure_reason="ai_polish_too_few_activities" if provider == "deepseek" else "",
+        )
+        return None
+
+    if len(normalized_selected) > 4:
+        normalized_selected = normalized_selected[:4]
+
+    if not general_text:
+        _set_last_ai_status(
+            used_ai=False,
+            provider_used=provider,
+            gemini_failed=(provider == "gemini"),
+            gemini_failure_reason="ai_polish_missing_general_text",
+            deepseek_failed=(provider == "deepseek"),
+            deepseek_failure_reason="ai_polish_missing_general_text" if provider == "deepseek" else "",
+        )
+        return None
+
+    _set_last_ai_status(
+        used_ai=True,
+        provider_used=provider,
+        gemini_failed=False,
+        gemini_failure_reason="",
+        deepseek_failed=False,
+        deepseek_failure_reason="",
+    )
+    return {
+        "general_text": general_text,
+        "selected_good_activities": normalized_selected,
+    }
 
 
 def ai_generate_generic_post(
