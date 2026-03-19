@@ -10,7 +10,13 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from .constants import MANTRA_LIBRARY_MN, WEEKDAY_MN, ZODIAC_SIGN_DETAILS_MN, ZODIAC_SIGNS_MN
+from .constants import (
+    MANTRA_LIBRARY_MN,
+    WEEKDAY_MN,
+    ZODIAC_SIGN_DETAILS_MN,
+    ZODIAC_SIGNS_MN,
+    pick_aphorism_theme,
+)
 from .http import urlopen_with_retry
 
 MORNING_TERMS = [
@@ -35,6 +41,7 @@ GEMINI_KEY_STATE_FILE = STATE_DIR / "gemini_key_state.json"
 APPROVED_MANTRA_LINES = tuple(item[0] for item in MANTRA_LIBRARY_MN)
 APPROVED_ZODIAC_SIGNS = tuple(ZODIAC_SIGNS_MN)
 BUDDHIST_ALMANAC_CATEGORIES = {"horoscope", "daily_guidance", "weekly"}
+GOGO_SOURCE_REQUIRED_CATEGORIES = {"horoscope", "zodiac_horoscope", "weekly_horoscope"}
 BUDDHIST_ALMANAC_BANNED_PHRASES = (
     "анхилам агаар",
     "ерөнхий зорилго",
@@ -467,6 +474,19 @@ def _append_source_context(user_prompt: str, source_context: str | None) -> str:
     )
 
 
+def _pick_insight_aphorism_theme(now_local: str, slot_hour: int | None = None) -> tuple[str, str, str, str]:
+    digits = re.sub(r"\D", "", now_local)
+    base_seed = int(digits[:10] or "0")
+    offset_raw = os.getenv("APHORISM_THEME_OFFSET", "0").strip()
+    try:
+        offset = int(offset_raw)
+    except ValueError:
+        offset = 0
+    if slot_hour is not None:
+        base_seed += slot_hour
+    return pick_aphorism_theme(base_seed + offset)
+
+
 def _build_mantra_repair_prompts(now_local: str, validation_reason: str, previous_text: str) -> tuple[str, str]:
     system_prompt = (
         "You are a Mongolian spiritual content writer. "
@@ -681,24 +701,31 @@ def build_prompts(
     source_context: str | None = None,
 ) -> tuple[str, str] | None:
     if category == "insight":
+        theme_label, theme_seed, reflection_anchor, engagement_anchor = _pick_insight_aphorism_theme(
+            now_local,
+            slot_hour,
+        )
         system_prompt = (
-            "You are a thoughtful Mongolian Facebook page writer. "
-            "Write one natural-sounding Mongolian Facebook status, not an article, sermon, or quote card. "
-            "Use 2-3 short paragraphs in plain text, with uneven sentence lengths, as if one real person wrote it in one sitting. "
-            "Base the post on one ordinary daily observation, then turn it into a grounded reflection. "
-            "Keep the tone warm, lived-in, and human. Avoid preachy voice, generic motivational filler, grand metaphors, and overly polished wording. "
-            "Do not use numbered lists, bullet points, or rigid 'lesson' formatting. "
-            "Avoid template phrases such as 'хэдэн бодлоо хуваалцъя', 'энэ мөчид', or similar dramatic openers. "
-            "Let the reflection sound like it came from a wise Mongolian grandmother noticing something small in daily life. "
-            "End with only 1-2 simple, relevant hashtags."
+            "You are a Mongolian Facebook page writer for the page 'Мэргэн эмээ'. "
+            "Write one original aphorism-inspired Mongolian Facebook post, not a translated quote, not a proverb list, and not a sermon. "
+            "Use exactly 2 short paragraphs followed by 1 short standalone question line that invites comments. "
+            "Keep the writing warm, lived-in, and shareable, with the rhythm of one real person writing naturally. "
+            "The post must feel like a grandmother with lived experience reflecting on life in a grounded way. "
+            "Do not use numbered lists, bullet points, quote marks, author attributions, or hashtags. "
+            "Do not mention aphorisms, Goodreads, authors, or 'today I want to share a thought' style openings. "
+            "Avoid generic motivational filler, rigid lesson formatting, grand metaphors, and cliche visual setups involving windows, window sills, potted plants, sunlight, dust, or chairs."
         )
         user_prompt = (
-            f"Generate today's insight post for {now_local}. "
-            "It should read naturally for the 14:00 afternoon slot. "
-            "Start from one small, ordinary moment someone could actually notice in real life, then move into a short reflection. "
-            "Do not write a numbered list. Do not stack 4-6 morals. "
-            "Do not sound like a guru, fortune cookie, or formal speech. "
-            "Keep it concise, slightly conversational, and believable as a human-written page post."
+            f"Generate today's 14:00 aphorism-inspired post for {now_local}. "
+            f"Internal theme: {theme_label}. "
+            f"{theme_seed} "
+            f"Reflection angle to loosely build from: {reflection_anchor} "
+            f"Comment angle to loosely build toward: {engagement_anchor} "
+            "Use the theme only as inspiration. Do not translate any quote literally and do not copy the reflection-angle wording verbatim. "
+            "Paragraph 1 should state the life truth in a natural, spoken way. "
+            "Paragraph 2 should turn it into a grounded reflection that sounds like lived experience, not a lecture. "
+            "The final line must be a short, warm question that makes people want to comment. "
+            "Keep it concise, natural, and believable as a human-written page post."
         )
     elif category == "horoscope":
         day_intro = _format_mongolian_day_intro(now_local)
@@ -721,6 +748,9 @@ def build_prompts(
             "Do not number the sections. The headings should appear exactly as plain emoji-plus-title lines. "
             "Use plain text only, no markdown emphasis. "
             "If source facts are provided, use them as the factual basis for the biligiin line, haircut meaning, travel direction, good activities, and caution items. "
+            "If source facts also include суудал, the general section must explicitly include it as a plain text line using the exact label 'Суудал: ...'. "
+            "If source facts include favorable/caution years, place them under the action section using the exact labels '✅ Сайн жилтэн: ...' and '⚠️ Болгоомжлох жилтэн: ...'. "
+            "Do not include combined year-status lines in the general section. Do not include lines for барилдлага, шүтэн барилдлага, or өдрийн сайн цаг. "
             "Keep it practical, restrained, and respectful. Avoid fear tactics and any medical, legal, or financial advice."
         )
         user_prompt = (
@@ -728,8 +758,11 @@ def build_prompts(
             f"The first line must be exactly: {day_intro} "
             "If source facts are provided, the second non-empty line should begin with 'Билгийн тооллын' and summarize the supplied biligiin information in one sentence. "
             "Then add the exact line 'Өнөөдрийн үс засуулах, аян зам, үйл хийхийн зурхайг доор сийрүүлье:' "
-            "Each section should contain 1-2 short sentences only. "
+            "The general section may contain one short opening sentence plus the extra metadata line 'Суудал: ...' when the source provides it. "
+            "The other sections should contain 1-2 short sentences only. "
             "Do not use any numbering like '1)' or '2)' before the section headings. "
+            "If source facts include favorable years or caution years, add them directly under '📿 Үйл хийхэд сайн' using these exact labels: '✅ Сайн жилтэн: ...' and '⚠️ Болгоомжлох жилтэн: ...'. "
+            "Do not print барилдлага, шүтэн барилдлага, өдрийн сайн цаг, or combined year-status lines. "
             "The hair section must use traditional wording around 'Үс шинээр үргээлгэх буюу засуулахад ...'. "
             "The travel section must mention 'Хол газар яваар одогсод ... мөрөө гаргавал ...' and include a real direction word such as зүүн, баруун, урд, өмнө, or хойш. "
             "The action section must say 'Эл өдөр ... үйлд сайн.' and should prefer traditional religious acts such as буян ном, маань тарни, засал, ариусгах, тахилга, ерөөл. "
@@ -870,19 +903,30 @@ def build_prompts(
         user_prompt = f"Generate tonight's short goodnight post for {now_local}."
     elif category == "fact":
         system_prompt = (
-            "You are a Mongolian Buddhist educator writing for a Facebook page. "
-            "Write a concise evening Facebook post of interesting, verifiable religion/Buddhist facts. "
-            "This post is for around 18:00, so the tone should feel like an early-evening reading post, not a morning greeting. "
-            "Include 4-6 short facts, keep tone respectful and practical, and avoid "
-            "controversial claims that require deep citation. Do not include medical, "
-            "legal, or financial advice. Do not use morning greetings or the words 'өглөө', 'өглөөний', 'өглөөний мэнд'. "
-            "End with 3-4 hashtags."
+            "You are a Mongolian Buddhist facts writer for the Facebook page 'Мэргэн эмээ'. "
+            "Write one short, visually clean, shareable evening post in Mongolian. "
+            "The post must not read like an article, lecture, textbook, or encyclopedia entry. "
+            "Use this structure exactly: "
+            "1) one short hook line, "
+            "2) exactly 3 short fact bullets, "
+            "3) one short question line inviting comments, "
+            "4) 1-2 short hashtags. "
+            "Each fact bullet should be 1-2 sentences only and easy to scan on Facebook. "
+            "Keep tone respectful, curious, and lightly conversational. "
+            "Avoid long dramatic evening intros, quote-heavy formatting, and academic wording. "
+            "Avoid controversial claims that require deep citation. "
+            "Do not include medical, legal, or financial advice. "
+            "Do not use morning greetings or the words 'өглөө', 'өглөөний', 'өглөөний мэнд'."
         )
         user_prompt = (
-            f"Generate today's interesting religion facts post for {now_local} in Mongolian. "
-            "It should read naturally for the 18:00 time slot. "
-            "Format as a short evening intro and a numbered list. "
-            "Do not greet the reader as if it were morning."
+            f"Generate today's 18:00 Buddhist/religion facts post for {now_local} in Mongolian. "
+            "Make it look attractive and easy to read in a Facebook feed. "
+            "Start with one short hook such as a curiosity line, not a poetic intro. "
+            "Then give exactly 3 concise fact bullets using the '•' bullet character. "
+            "Choose facts that sound interesting, surprising, or clarifying, but still believable. "
+            "After the bullets, end with one short question that makes people want to comment. "
+            "Do not use a numbered list. Do not make any paragraph too long. "
+            "Keep the whole post compact and shareable."
         )
     elif category == "weekly":
         system_prompt = (
@@ -1188,6 +1232,16 @@ def ai_generate_generic_post(
     slot_hour: int | None = None,
     source_context: str | None = None,
 ) -> str | None:
+    if category in GOGO_SOURCE_REQUIRED_CATEGORIES and not source_context:
+        print(f"[ERROR] Missing GoGo source context for required category: {category}")
+        _set_last_ai_status(
+            used_ai=False,
+            provider_used="",
+            gemini_failed=False,
+            gemini_failure_reason="missing_gogo_source_context",
+        )
+        return None
+
     prompts = build_prompts(category, now_local, slot_hour, source_context=source_context)
     if not prompts:
         _set_last_ai_status(

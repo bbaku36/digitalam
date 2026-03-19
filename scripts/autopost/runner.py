@@ -45,7 +45,7 @@ def main() -> int:
     category = determine_post_category(post_meta)
 
     if category == SCHEDULE_SKIP_CATEGORY:
-        print("[INFO] Midnight slot is disabled by ENABLE_MIDNIGHT_POST=0. Skipping this run.")
+        print("[INFO] No scheduled category for this run, or the selected slot is disabled. Skipping this run.")
         return 0
 
     print(f"[INFO] Selected category: {category}")

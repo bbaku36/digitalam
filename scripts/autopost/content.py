@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import os
+import re
 from datetime import timedelta
 
 from .ai import ai_generate_generic_post
 from .constants import (
     EVENING_INSIGHTS_MN,
-    INSIGHT_QUOTES_MN,
     MANTRA_LIBRARY_MN,
     RELIGIOUS_FACTS_MN,
     TOMORROW_PREP_TIPS_MN,
@@ -18,6 +18,16 @@ from .constants import (
 )
 from .env import now_in_content_timezone
 from .gogo_source import build_gogo_source_context
+
+GOGO_SOURCE_REQUIRED_CATEGORIES = {"horoscope", "zodiac_horoscope", "weekly_horoscope"}
+
+HOROSCOPE_SECTION_HEADINGS = {
+    "🌿 Өдрийн ерөнхий төлөв",
+    "✂️ Үс засуулах тохиромж",
+    "🛣️ Аян замд гарах",
+    "📿 Үйл хийхэд сайн",
+    "⚠️ Цээрлэх зүйл",
+}
 
 
 def content_context_now():
@@ -40,31 +50,74 @@ def format_mongolian_day_intro(now) -> str:
     )
 
 
-def build_insight_post_fallback() -> str:
-    now = now_in_content_timezone()
-    now_local = now.strftime("%Y-%m-%d")
-    lines_per_post = 5
-    seed = int(now.strftime("%Y%m%d"))
-    start = seed % len(INSIGHT_QUOTES_MN)
+def _extract_source_value(source_context: str | None, prefix: str) -> str:
+    if not source_context:
+        return ""
+    for line in source_context.splitlines():
+        if line.startswith(prefix):
+            return line[len(prefix) :].strip()
+    return ""
 
-    picked = [INSIGHT_QUOTES_MN[(start + i) % len(INSIGHT_QUOTES_MN)] for i in range(lines_per_post)]
 
-    lines = [
-        f"Өтгөсийн ухаарал, өдрийн сануулга ({now_local})",
-        "",
-        "Өнөөдөр сэтгэлдээ тогтоож явах 5 үг:",
-        "",
-    ]
-    for i, quote in enumerate(picked, start=1):
-        lines.append(f"{i}. {quote}")
-    lines.extend(
-        [
-            "",
-            "Өвгөдийн үг уртдаа биш, яг цагтаа хүрсэндээ үнэ цэнтэй байдаг.",
-            "#ӨтгөсийнУхаарал #ӨдрийнСануулга #СэтгэлийнДэмжлэг #DigitalLam",
-        ]
+def _normalize_year_line(value: str) -> str:
+    cleaned = value.strip().rstrip(".")
+    cleaned = re.sub(r"\s*жилтнээ$", "", cleaned).strip()
+    return cleaned
+
+
+def _inject_horoscope_year_lines(text: str, source_context: str | None) -> str:
+    favorable = _normalize_year_line(_extract_source_value(source_context, "Favorable years: "))
+    caution = _normalize_year_line(_extract_source_value(source_context, "Caution years: "))
+    if not favorable and not caution:
+        return text
+
+    lines = text.splitlines()
+    cleaned_lines: list[str] = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("Жилтэнд сайн/болгоомжтой:"):
+            continue
+        if stripped.startswith("✅ Сайн жилтэн:"):
+            continue
+        if stripped.startswith("⚠️ Болгоомжлох жилтэн:"):
+            continue
+        cleaned_lines.append(line)
+
+    action_idx = next(
+        (idx for idx, line in enumerate(cleaned_lines) if line.strip() == "📿 Үйл хийхэд сайн"),
+        None,
     )
-    return "\n".join(lines).strip()
+    if action_idx is None:
+        return "\n".join(cleaned_lines).strip()
+
+    next_heading_idx = next(
+        (
+            idx
+            for idx in range(action_idx + 1, len(cleaned_lines))
+            if cleaned_lines[idx].strip() in HOROSCOPE_SECTION_HEADINGS
+        ),
+        len(cleaned_lines),
+    )
+    insert_idx = next_heading_idx
+    while insert_idx > action_idx + 1 and not cleaned_lines[insert_idx - 1].strip():
+        insert_idx -= 1
+
+    injected_lines: list[str] = []
+    injected_lines.append("")
+    if favorable:
+        injected_lines.append(f"✅ Сайн жилтэн: {favorable}")
+    if caution:
+        injected_lines.append(f"⚠️ Болгоомжлох жилтэн: {caution}")
+
+    if not injected_lines:
+        return "\n".join(cleaned_lines).strip()
+
+    updated_lines = cleaned_lines[:insert_idx] + injected_lines + cleaned_lines[insert_idx:]
+    return "\n".join(updated_lines).strip()
+
+
+def build_insight_post_fallback() -> str:
+    return ""
 
 
 def build_horoscope_post_fallback() -> str:
@@ -469,12 +522,16 @@ def build_category_post(category: str) -> str:
         source_context=source_context,
     )
     if ai_post:
+        if category == "horoscope":
+            return _inject_horoscope_year_lines(ai_post, source_context)
         return ai_post
+    if category in GOGO_SOURCE_REQUIRED_CATEGORIES and not source_context:
+        return ""
 
     if category == "insight":
         return build_insight_post_fallback()
     if category == "horoscope":
-        return build_horoscope_post_fallback()
+        return _inject_horoscope_year_lines(build_horoscope_post_fallback(), source_context)
     if category == "zodiac_horoscope":
         return build_zodiac_horoscope_post_fallback()
     if category == "daily_guidance":

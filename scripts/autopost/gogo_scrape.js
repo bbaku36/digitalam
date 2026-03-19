@@ -115,6 +115,34 @@ function populateSummaryActions(info) {
   }
 }
 
+function populateCalendarMetadata(info) {
+  const block = info.block || "";
+  const summary = info.summary || block;
+
+  const barildlagaMatch = block.match(/Барилдлага:\s*(.+?)\s+Шүтэн барилдлага:/u);
+  if (barildlagaMatch) {
+    info.barildlaga = normalizeText(barildlagaMatch[1]);
+  }
+
+  const shuteenMatch = block.match(/Шүтэн барилдлага:\s*([А-Яа-яӨөҮүЁё]+)/u);
+  if (shuteenMatch) {
+    info.shuteen_barildlaga = normalizeText(shuteenMatch[1]);
+  }
+
+  const suudalMatch = block.match(/Суудал:\s*([А-Яа-яӨөҮүЁё]+)/u);
+  if (suudalMatch) {
+    info.suudal = normalizeText(suudalMatch[1]);
+  }
+
+  const yearEffectMatch = summary.match(
+    /Тухайн өдөр\s+(.+?жилтнээ)\s+аливаа үйлийг хийхэд эерэг сайн ба\s+(.+?жилтнээ)\s+сөрөг муу нөлөөтэй/u,
+  );
+  if (yearEffectMatch) {
+    info.favorable_years = normalizeText(yearEffectMatch[1]);
+    info.caution_years = normalizeText(yearEffectMatch[2]);
+  }
+}
+
 function parseCalendar(text) {
   const start = text.indexOf("Билгийн тооллын");
   if (start < 0) {
@@ -169,6 +197,7 @@ function parseCalendar(text) {
   }
 
   populateSummaryActions(info);
+  populateCalendarMetadata(info);
 
   return info;
 }
@@ -293,6 +322,7 @@ function parseCalendarDayHtml(html, targetDate) {
   }
 
   populateSummaryActions(info);
+  populateCalendarMetadata(info);
 
   return info;
 }

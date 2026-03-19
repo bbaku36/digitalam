@@ -50,6 +50,8 @@ def select_scheduled_category() -> str | None:
             hour = int(force_hour_raw)
             if 0 <= hour <= 23:
                 selected = DAILY_SCHEDULE_CATEGORY_BY_HOUR.get(hour)
+                if not selected:
+                    return SCHEDULE_SKIP_CATEGORY
                 if selected == "goodnight" and not env_flag("ENABLE_MIDNIGHT_POST", "1"):
                     return SCHEDULE_SKIP_CATEGORY
                 return selected
@@ -62,6 +64,8 @@ def select_scheduled_category() -> str | None:
     )
     if trigger_cron:
         selected = SCHEDULE_CATEGORY_BY_CRON.get(trigger_cron)
+        if not selected:
+            return SCHEDULE_SKIP_CATEGORY
         if selected == "goodnight" and not env_flag("ENABLE_MIDNIGHT_POST", "1"):
             return SCHEDULE_SKIP_CATEGORY
         if selected:
@@ -70,7 +74,7 @@ def select_scheduled_category() -> str | None:
     now_local = now_in_content_timezone()
     selected = DAILY_SCHEDULE_CATEGORY_BY_HOUR.get(now_local.hour)
     if not selected:
-        return None
+        return SCHEDULE_SKIP_CATEGORY
     if selected == "goodnight" and not env_flag("ENABLE_MIDNIGHT_POST", "1"):
         return SCHEDULE_SKIP_CATEGORY
     return selected

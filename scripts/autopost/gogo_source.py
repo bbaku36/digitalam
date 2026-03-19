@@ -84,7 +84,7 @@ def build_gogo_source_context(category: str, now_local: str) -> str | None:
         return None
 
     if category == "horoscope":
-        payload = _run_gogo_scraper("calendar", date_only)
+        payload = _run_gogo_scraper("calendar_day", date_only)
         if not payload:
             return None
 
@@ -106,6 +106,16 @@ def build_gogo_source_context(category: str, now_local: str) -> str | None:
             context_lines.append(f"Sunrise/sunset: {payload['sun_times']}")
         if payload.get("good_times"):
             context_lines.append(f"Good times: {payload['good_times']}")
+        if payload.get("barildlaga"):
+            context_lines.append(f"Barildlaga: {payload['barildlaga']}")
+        if payload.get("shuteen_barildlaga"):
+            context_lines.append(f"Shuteen barildlaga: {payload['shuteen_barildlaga']}")
+        if payload.get("suudal"):
+            context_lines.append(f"Suudal: {payload['suudal']}")
+        if payload.get("favorable_years"):
+            context_lines.append(f"Favorable years: {payload['favorable_years']}")
+        if payload.get("caution_years"):
+            context_lines.append(f"Caution years: {payload['caution_years']}")
         if payload.get("travel"):
             context_lines.append(f"Travel direction: {payload['travel']}")
         if payload.get("haircut_line"):
