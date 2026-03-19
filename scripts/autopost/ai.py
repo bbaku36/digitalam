@@ -233,10 +233,7 @@ def _approved_mantra_list_text() -> str:
 def _format_mongolian_day_intro(now_local: str) -> str:
     date_only = now_local.split()[0].strip()
     parsed = datetime.strptime(date_only, "%Y-%m-%d")
-    return (
-        f"Өнөөдөр {parsed.year} оны {parsed.month} дугаар сарын {parsed.day}, "
-        f"{WEEKDAY_MN[parsed.weekday()]} гараг."
-    )
+    return f"{parsed.year} оны {parsed.month} дугаар сарын {parsed.day}."
 
 
 def _format_week_range(now_local: str) -> str:
@@ -291,10 +288,12 @@ def _validate_buddhist_almanac_output(category: str, text: str) -> tuple[bool, s
 
     if category in {"horoscope", "daily_guidance"}:
         if category == "horoscope":
-            if not first_line.startswith("өнөөдөр "):
+            if not re.match(r"^\d{4} оны \d{1,2} дугаар сарын \d{1,2}\.$", first_line):
                 return False, "missing_gregorian_intro"
-            if "оны" not in first_line or "дугаар сарын" not in first_line or "гараг" not in first_line:
+            if "оны" not in first_line or "дугаар сарын" not in first_line:
                 return False, "invalid_gregorian_intro"
+            if len(non_empty_lines) < 2 or non_empty_lines[1] != "Өдрийн үс засуулах, аян зам, үйл хийхийн зурхай.":
+                return False, "invalid_horoscope_title_line"
             if any(re.match(r"^\d+\)", line) for line in non_empty_lines):
                 return False, "numbered_sections_not_allowed"
         if not any(marker in lower for marker in ("үс шинээр үргээлгэх", "үс засуулбал", "үс засуулахад")):
@@ -552,8 +551,9 @@ def _build_buddhist_almanac_repair_prompts(
 
     required_formats = {
         "horoscope": (
-            "Өнөөдөр 2026 оны 3 дугаар сарын 14, Бямба гараг.\n"
-            "Өнөөдрийн үс засуулах, аян зам, үйл хийхийн зурхайг доор сийрүүлье:\n"
+            "2026 оны 3 дугаар сарын 14.\n"
+            "Өдрийн үс засуулах, аян зам, үйл хийхийн зурхай.\n"
+            "Билгийн тооллын ...\n"
             "🌿 Өдрийн ерөнхий төлөв\n"
             "Эл өдөр ...\n"
             "✂️ Үс засуулах тохиромж\n"
@@ -564,8 +564,8 @@ def _build_buddhist_almanac_repair_prompts(
             "Эл өдөр ... үйлд сайн.\n"
             "⚠️ Цээрлэх зүйл\n"
             "... үйл цээрлэвэл зохистой.\n"
-            "Тэмдэглэл: Энэ нь уламжлалт, ерөнхий чиглүүлэг.\n"
-            "#ӨдрийнЗурхай #ҮсЗасуулах #АянЗам #DigitalLam"
+            "Энэхүү зурхай нь уламжлалт билгийн тооллын ерөнхий мэдээлэл болно.\n"
+            "#ӨдрийнЗурхай #ҮсЗасуулах #АянЗамдГарах #замдгарах"
         ),
         "daily_guidance": (
             "Өдрийн үйл, шарын шашны чиглүүлэг (...)\n"
@@ -733,7 +733,7 @@ def build_prompts(
             "You are a Mongolian Buddhist almanac-style writer. "
             "Write a concise Facebook post in Mongolian in the style of traditional Mongolian Yellow Buddhism daily guidance. "
             "Do not use Western zodiac signs, Chinese zodiac animals, birth years, or 12-sign readings. "
-            "Open with a Gregorian date sentence in Mongolian, then a short lead-in sentence, then use exactly these section headings: "
+            "Open with a Gregorian date line in Mongolian, then a short title line, then use exactly these section headings: "
             "1) '🌿 Өдрийн ерөнхий төлөв', "
             "2) '✂️ Үс засуулах тохиромж', "
             "3) '🛣️ Аян замд гарах', "
@@ -756,8 +756,8 @@ def build_prompts(
         user_prompt = (
             f"Generate today's Mongolian Buddhist-style daily guidance post for {now_local}. "
             f"The first line must be exactly: {day_intro} "
-            "If source facts are provided, the second non-empty line should begin with 'Билгийн тооллын' and summarize the supplied biligiin information in one sentence. "
-            "Then add the exact line 'Өнөөдрийн үс засуулах, аян зам, үйл хийхийн зурхайг доор сийрүүлье:' "
+            "The second non-empty line must be exactly: 'Өдрийн үс засуулах, аян зам, үйл хийхийн зурхай.' "
+            "If source facts are provided, the next non-empty line should begin with 'Билгийн тооллын' and summarize the supplied biligiin information in one sentence. "
             "The general section may contain one short opening sentence plus the extra metadata line 'Суудал: ...' when the source provides it. "
             "The other sections should contain 1-2 short sentences only. "
             "Do not use any numbering like '1)' or '2)' before the section headings. "
@@ -767,7 +767,8 @@ def build_prompts(
             "The travel section must mention 'Хол газар яваар одогсод ... мөрөө гаргавал ...' and include a real direction word such as зүүн, баруун, урд, өмнө, or хойш. "
             "The action section must say 'Эл өдөр ... үйлд сайн.' and should prefer traditional religious acts such as буян ном, маань тарни, засал, ариусгах, тахилга, ерөөл. "
             "The caution section must end in a traditional warning such as '... үйл цээрлэвэл зохистой.' "
-            "Finish with a short plain-text disclaimer and exactly these hashtags: #ӨдрийнЗурхай #ҮсЗасуулах #АянЗам #DigitalLam"
+            "Finish with the exact plain-text disclaimer 'Энэхүү зурхай нь уламжлалт билгийн тооллын ерөнхий мэдээлэл болно.' "
+            "and exactly these hashtags: #ӨдрийнЗурхай #ҮсЗасуулах #АянЗамдГарах #замдгарах"
         )
     elif category == "zodiac_horoscope":
         system_prompt = (

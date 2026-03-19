@@ -28,6 +28,7 @@ HOROSCOPE_SECTION_HEADINGS = {
     "📿 Үйл хийхэд сайн",
     "⚠️ Цээрлэх зүйл",
 }
+HOROSCOPE_FIXED_DISCLAIMER = "Энэхүү зурхай нь уламжлалт билгийн тооллын ерөнхий мэдээлэл болно."
 
 
 def content_context_now():
@@ -44,10 +45,7 @@ def content_context_now():
 
 
 def format_mongolian_day_intro(now) -> str:
-    return (
-        f"Өнөөдөр {now.year} оны {now.month} дугаар сарын {now.day}, "
-        f"{WEEKDAY_MN[now.weekday()]} гараг."
-    )
+    return f"{now.year} оны {now.month} дугаар сарын {now.day}."
 
 
 def _extract_source_value(source_context: str | None, prefix: str) -> str:
@@ -116,6 +114,59 @@ def _inject_horoscope_year_lines(text: str, source_context: str | None) -> str:
     return "\n".join(updated_lines).strip()
 
 
+def _normalize_horoscope_post(text: str, date_intro: str) -> str:
+    lines = [line.rstrip() for line in text.splitlines()]
+    heading_idx = next(
+        (idx for idx, line in enumerate(lines) if line.strip() == "🌿 Өдрийн ерөнхий төлөв"),
+        None,
+    )
+
+    if heading_idx is not None:
+        biligiin_line = next(
+            (line.strip() for line in lines[:heading_idx] if line.strip().startswith("Билгийн тооллын")),
+            "",
+        )
+        rebuilt_lines = [date_intro, "Өдрийн үс засуулах, аян зам, үйл хийхийн зурхай."]
+        if biligiin_line:
+            rebuilt_lines.append(biligiin_line)
+        rebuilt_lines.append("")
+        rebuilt_lines.extend(lines[heading_idx:])
+        lines = rebuilt_lines
+    else:
+        lines = [
+            "Өдрийн үс засуулах, аян зам, үйл хийхийн зурхай."
+            if "Өнөөдрийн үс засуулах, аян зам, үйл хийхийн зурхай" in line
+            else line
+            for line in lines
+        ]
+
+    cleaned_lines: list[str] = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            continue
+        cleaned_lines.append(line)
+
+    while cleaned_lines and not cleaned_lines[-1].strip():
+        cleaned_lines.pop()
+    if cleaned_lines:
+        last_line = cleaned_lines[-1].strip().lower()
+        if any(marker in last_line for marker in ("зурхай", "тэмдэглэл", "зөвлөмж", "ерөнхий мэдээлэл")):
+            cleaned_lines.pop()
+            while cleaned_lines and not cleaned_lines[-1].strip():
+                cleaned_lines.pop()
+
+    cleaned_lines.extend(
+        [
+            "",
+            HOROSCOPE_FIXED_DISCLAIMER,
+            "",
+            "#ӨдрийнЗурхай #ҮсЗасуулах #АянЗамдГарах #замдгарах",
+        ]
+    )
+    return "\n".join(cleaned_lines).strip()
+
+
 def build_insight_post_fallback() -> str:
     return ""
 
@@ -153,7 +204,7 @@ def build_horoscope_post_fallback() -> str:
     lines = [
         format_mongolian_day_intro(now),
         "",
-        "Өнөөдрийн үс засуулах, аян зам, үйл хийхийн зурхайг доор сийрүүлье:",
+        "Өдрийн үс засуулах, аян зам, үйл хийхийн зурхай.",
         "",
         "🌿 Өдрийн ерөнхий төлөв",
         general_lines[seed % len(general_lines)],
@@ -171,8 +222,8 @@ def build_horoscope_post_fallback() -> str:
         caution_lines[(seed + 4) % len(caution_lines)],
         "",
         "Өтгөсийн сануулга: Биеэ энхрийлж, үгээ гамнаж, үйлээ ариунаар авч яваарай.",
-        "Тэмдэглэл: Энэ нь уламжлалт хэв маягаар өгсөн ерөнхий зурхайн чиглүүлэг болно.",
-        "#ӨдрийнЗурхай #ҮсЗасуулах #АянЗам #DigitalLam",
+        HOROSCOPE_FIXED_DISCLAIMER,
+        "#ӨдрийнЗурхай #ҮсЗасуулах #АянЗамдГарах #замдгарах",
     ]
     return "\n".join(lines).strip()
 
@@ -523,7 +574,10 @@ def build_category_post(category: str) -> str:
     )
     if ai_post:
         if category == "horoscope":
-            return _inject_horoscope_year_lines(ai_post, source_context)
+            return _normalize_horoscope_post(
+                _inject_horoscope_year_lines(ai_post, source_context),
+                format_mongolian_day_intro(now_ctx),
+            )
         return ai_post
     if category in GOGO_SOURCE_REQUIRED_CATEGORIES and not source_context:
         return ""
@@ -531,7 +585,10 @@ def build_category_post(category: str) -> str:
     if category == "insight":
         return build_insight_post_fallback()
     if category == "horoscope":
-        return _inject_horoscope_year_lines(build_horoscope_post_fallback(), source_context)
+        return _normalize_horoscope_post(
+            _inject_horoscope_year_lines(build_horoscope_post_fallback(), source_context),
+            format_mongolian_day_intro(now_ctx),
+        )
     if category == "zodiac_horoscope":
         return build_zodiac_horoscope_post_fallback()
     if category == "daily_guidance":
