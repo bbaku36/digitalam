@@ -138,7 +138,7 @@ jobs:
           AI_PROVIDER: "gemini"
           REQUIRE_AI_CONTENT: "1"
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GEMINI_API_KEYS: ${{ secrets.GEMINI_API_KEYS }}
+          GEMINI_API_KEYS: "${{ secrets.GEMINI_API_KEY }},${{ secrets.GEMINI_API_KEY2 }}"
           GEMINI_MODEL: "gemini-3.1-flash-lite-preview"
           CONTENT_TIMEZONE: "Asia/Ulaanbaatar"
           USE_TIME_SLOT_SCHEDULE: "1"
