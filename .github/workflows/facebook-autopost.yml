@@ -47,9 +47,6 @@ jobs:
       - name: Install Node dependencies
         run: npm ci
 
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
-
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -148,7 +145,6 @@ jobs:
           TRIGGER_SCHEDULE_CRON: "${{ github.event.schedule }}"
           FORCE_SLOT_HOUR: "${{ inputs.force_slot_hour }}"
           POST_CATEGORY: "${{ inputs.post_category }}"
-          HOROSCOPE_IMAGE_POST: "1"
           ENABLE_MIDNIGHT_POST: "1"
           PIN_SCHEDULED_POSTS: "0"
           PIN_CATEGORIES: "horoscope,zodiac_horoscope"

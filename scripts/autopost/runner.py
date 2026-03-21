@@ -72,7 +72,7 @@ def main() -> int:
         print("[ERROR] Skipping post to avoid non-AI fallback content.")
         return 1
 
-    image_mode = category == "horoscope" and env_flag("HOROSCOPE_IMAGE_POST", "1")
+    image_mode = category == "horoscope" and env_flag("HOROSCOPE_IMAGE_POST", "0")
     image_path = None
     image_caption = ""
     if image_mode:
