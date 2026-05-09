@@ -716,11 +716,33 @@ def _short_date_label(date_str: str) -> str:
     return date_str
 
 
-def _pick_highlight_day(entries: list[dict[str, str]], picker) -> tuple[str, str]:
-    for entry in entries:
-        if picker(entry):
-            return entry["weekday"], _short_date_label(entry["date"])
-    return "—", ""
+def _pick_highlight_days(entries: list[dict[str, str]], picker) -> list[tuple[str, str]]:
+    matches = [
+        (entry["weekday"], _short_date_label(entry["date"]))
+        for entry in entries
+        if picker(entry)
+    ]
+    return matches or [("—", "")]
+
+
+def _summary_card_html(icon: str, label: str, days: list[tuple[str, str]]) -> str:
+    if len(days) >= 7:
+        days_main = "Бүх өдөр"
+        dates_line = ""
+    else:
+        days_main = " · ".join(name for name, _ in days)
+        dates_line = " · ".join(date for _, date in days if date)
+    dates_html = (
+        f'<div class="summary-date">{_escape(dates_line)}</div>' if dates_line else ""
+    )
+    return (
+        '<div class="summary-card">'
+        f'<div class="summary-icon">{_escape(icon)}</div>'
+        f'<div class="summary-label">{_escape(label)}</div>'
+        f'<div class="summary-day">{_escape(days_main)}</div>'
+        f"{dates_html}"
+        "</div>"
+    )
 
 
 def build_weekly_horoscope_image_caption(post_text: str) -> str:
@@ -757,11 +779,11 @@ def _build_weekly_horoscope_html(post_text: str, source_context: str | None) -> 
         weekday = entry.get("weekday", "")
         date_label = _short_date_label(entry.get("date", ""))
         hair_class, hair_label = _weekly_hair_status(entry.get("haircut_suitability", ""))
-        hair_brief = _short_omen(entry.get("haircut_omen", "") or hair_label, max_chars=24)
+        hair_brief = (entry.get("haircut_omen", "") or hair_label).strip().rstrip(".")
         direction = _direction_short(entry.get("travel", ""))
         action_class, action_label = _weekly_action_status(entry.get("caution", ""))
-        action_first = _split_items(entry.get("good_activities", ""), limit=1)
-        action_brief = _short_omen(action_first[0] if action_first else action_label, max_chars=22)
+        action_first = _split_items(entry.get("good_activities", ""), limit=2)
+        action_brief = ", ".join(action_first) if action_first else action_label
 
         rows_html_parts.append(
             f"""
@@ -790,19 +812,22 @@ def _build_weekly_horoscope_html(post_text: str, source_context: str | None) -> 
 
     rows_html = "\n".join(rows_html_parts)
 
-    best_hair_day, best_hair_date = _pick_highlight_day(
+    best_hair_days = _pick_highlight_days(
         entries, lambda e: "тохиромжгүй" not in e.get("haircut_suitability", "").lower()
     )
-    best_action_day, best_action_date = _pick_highlight_day(
-        entries, lambda e: "хянамгай" not in e.get("caution", "").lower() and bool(e.get("good_activities"))
+    best_action_days = _pick_highlight_days(
+        entries,
+        lambda e: "хянамгай" not in e.get("caution", "").lower() and bool(e.get("good_activities")),
     )
-    best_travel_day, best_travel_date = entries[0]["weekday"], _short_date_label(entries[0]["date"])
-    for entry in entries:
-        guidance = entry.get("travel", "").lower()
-        if "зохистой" in guidance and "болгоомж" not in guidance:
-            best_travel_day = entry["weekday"]
-            best_travel_date = _short_date_label(entry["date"])
-            break
+    best_travel_days = _pick_highlight_days(
+        entries,
+        lambda e: "зохистой" in e.get("travel", "").lower()
+        and "болгоомж" not in e.get("travel", "").lower(),
+    )
+
+    summary_hair_html = _summary_card_html("✂", "Үс засуулах өдөр", best_hair_days)
+    summary_travel_html = _summary_card_html("🧭", "Аян замд гарах", best_travel_days)
+    summary_action_html = _summary_card_html("📿", "Үйл хийхэд сайн", best_action_days)
 
     return f"""<!doctype html>
 <html lang="mn">
@@ -938,7 +963,17 @@ def _build_weekly_horoscope_html(post_text: str, source_context: str | None) -> 
         text-align: center;
       }}
       .stat-label {{ font-size: 18px; font-weight: 700; color: var(--ink); line-height: 1.15; }}
-      .stat-brief {{ font-size: 13px; color: var(--ink-mute); line-height: 1.25; letter-spacing: 0.02em; }}
+      .stat-brief {{
+        font-size: 13px;
+        color: var(--ink-mute);
+        line-height: 1.3;
+        letter-spacing: 0.01em;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        word-break: break-word;
+      }}
       .status-good .stat-label {{ color: var(--good); }}
       .status-warn .stat-label {{ color: var(--warn); }}
       .status-bad .stat-label {{ color: var(--bad); }}
@@ -967,11 +1002,13 @@ def _build_weekly_horoscope_html(post_text: str, source_context: str | None) -> 
       }}
       .summary-day {{
         font-family: 'Playfair Display', serif;
-        font-size: 24px;
+        font-size: 22px;
         font-weight: 700;
         color: var(--gold);
+        line-height: 1.25;
+        word-break: keep-all;
       }}
-      .summary-date {{ font-size: 14px; color: var(--ink-mute); margin-top: 2px; }}
+      .summary-date {{ font-size: 13px; color: var(--ink-mute); margin-top: 4px; line-height: 1.3; letter-spacing: 0.02em; }}
 
       .footer {{ margin-top: auto; padding-top: 22px; text-align: center; opacity: 0.65; }}
       .footer p {{ font-size: 13px; letter-spacing: 0.28em; text-transform: uppercase; line-height: 1.5; color: var(--ink-mute); margin: 0; }}
@@ -998,24 +1035,9 @@ def _build_weekly_horoscope_html(post_text: str, source_context: str | None) -> 
           </section>
 
           <section class="summary">
-            <div class="summary-card">
-              <div class="summary-icon">✂</div>
-              <div class="summary-label">Үс засуулах өдөр</div>
-              <div class="summary-day">{_escape(best_hair_day)}</div>
-              <div class="summary-date">{_escape(best_hair_date)}</div>
-            </div>
-            <div class="summary-card">
-              <div class="summary-icon">🧭</div>
-              <div class="summary-label">Аян замд гарах</div>
-              <div class="summary-day">{_escape(best_travel_day)}</div>
-              <div class="summary-date">{_escape(best_travel_date)}</div>
-            </div>
-            <div class="summary-card">
-              <div class="summary-icon">📿</div>
-              <div class="summary-label">Үйл хийхэд сайн</div>
-              <div class="summary-day">{_escape(best_action_day)}</div>
-              <div class="summary-date">{_escape(best_action_date)}</div>
-            </div>
+            {summary_hair_html}
+            {summary_travel_html}
+            {summary_action_html}
           </section>
 
           <footer class="footer">
