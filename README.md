@@ -63,23 +63,17 @@ This project auto-posts Mongolian Facebook content with fixed time slots:
    - `force_slot_hour=8` өгвөл `08:00`-ийн `zodiac_horoscope` post-ийг шууд ажиллуулж болно
    - `post_category=zodiac_horoscope` өгвөл category-г шууд override хийж болно
 
-After that, it runs automatically by schedule (Ulaanbaatar 06:00, 08:00, 14:00, 18:00, 22:00).
+After that, it runs automatically by schedule (Ulaanbaatar 06:00, 08:00).
 
 ### Schedule note
 
 - Workflow cron is split into separate UTC schedules:
   - `0 22 * * *` -> `06:00`
   - `0 0 * * *` -> `08:00`
-  - `0 6 * * *` -> `14:00`
-  - `0 10 * * *` -> `18:00`
-  - `0 14 * * *` -> `22:00`
-- Mongolia is UTC+8, so runs at: 06:00, 08:00, 14:00, 18:00, 22:00 (Ulaanbaatar time)
+- Mongolia is UTC+8, so runs at: 06:00, 08:00 (Ulaanbaatar time)
 - Time slot map:
-- `06:00` -> `horoscope`
-- `08:00` -> `zodiac_horoscope`
-  - `14:00` -> `insight`
-  - `18:00` -> `fact`
-  - `22:00` -> `tomorrow_prep`
+  - `06:00` -> `horoscope`
+  - `08:00` -> `zodiac_horoscope`
 - Scheduled run хоцорч эхэлсэн ч `github.event.schedule`-оор нь зөв category сонгодог.
 
 ## Category control

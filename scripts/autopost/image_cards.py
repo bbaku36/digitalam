@@ -252,148 +252,208 @@ def _build_horoscope_html(post_text: str, source_context: str | None) -> str:
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Horoscope Card</title>
     <style>
+      @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Montserrat:wght@300;400;700&display=swap');
+      
       :root {{
-        --ink: #10203a;
-        --muted: #5b6b83;
-        --card: #ffffff;
-        --line: rgba(148, 163, 184, 0.18);
-        --indigo: #4338ca;
-        --indigo-soft: #eef2ff;
-        --blue-soft: #eff6ff;
-        --cyan-soft: #ecfeff;
-        --emerald-soft: #ecfdf5;
-        --rose-soft: #fff1f2;
-        --amber-soft: #fff7ed;
+        --gold: #d4af37;
+        --gold-glow: rgba(212, 175, 55, 0.4);
+        --text-gold: #f3e5ab;
+        --deep-void: #07050f;
+        --nebula-purple: rgba(88, 28, 135, 0.3);
+        --nebula-teal: rgba(13, 148, 136, 0.2);
+        --glass-white: rgba(255, 255, 255, 0.03);
+        --ink: #f8fafc;
+        --muted: #94a3b8;
       }}
       * {{ box-sizing: border-box; }}
-      html, body {{ margin: 0; background: #ffffff; font-family: "SF Pro Display", "Segoe UI", sans-serif; color: var(--ink); }}
-      .page {{ display: flex; justify-content: center; padding: 0; }}
+      html, body {{ margin: 0; background: var(--deep-void); font-family: 'Montserrat', sans-serif; color: var(--ink); width: 1080px; height: 1350px; overflow: hidden; }}
+      .page {{ display: flex; justify-content: center; padding: 0; width: 1080px; height: 1350px; }}
+
       .card {{
-        width: 100%;
-        max-width: 720px;
-        border-radius: 36px;
-        overflow: hidden;
+        width: 1080px;
+        height: 1350px;
         background:
-          radial-gradient(circle at top left, rgba(99, 102, 241, 0.08), transparent 26%),
-          radial-gradient(circle at bottom right, rgba(14, 165, 233, 0.10), transparent 22%),
-          var(--card);
+          radial-gradient(circle at 10% 20%, var(--nebula-purple), transparent 40%),
+          radial-gradient(circle at 90% 80%, var(--nebula-teal), transparent 40%),
+          radial-gradient(circle at 50% 50%, rgba(20, 10, 40, 1), var(--deep-void) 80%);
+        position: relative;
+        overflow: hidden;
+        border: 1px solid rgba(212, 175, 55, 0.15);
+        display: flex;
+        flex-direction: column;
       }}
-      .content {{ padding: 24px 26px 20px; }}
-      .date-chip {{
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        padding: 14px 24px 16px;
-        border: 1px solid rgba(99, 102, 241, 0.14);
-        border-radius: 24px;
-        background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(238, 242, 255, 0.92));
-        box-shadow: 0 12px 26px rgba(99, 102, 241, 0.08);
+
+      /* Decorative Mandala SVG in Background - More subtle and pushed back */
+      .card::before {{
+        content: "";
+        position: absolute;
+        top: -220px;
+        right: -220px;
+        width: 900px;
+        height: 900px;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' stroke='%23d4af37' stroke-width='0.1' fill='none' opacity='0.05'/%3E%3Ccircle cx='50' cy='50' r='35' stroke='%23d4af37' stroke-width='0.08' fill='none' opacity='0.04'/%3E%3Cpath d='M50 5 L50 95 M5 50 L95 50' stroke='%23d4af37' stroke-width='0.05' opacity='0.03'/%3E%3C/svg%3E");
+        background-size: contain;
+        background-repeat: no-repeat;
+        pointer-events: none;
+        z-index: 0;
+        opacity: 0.5;
       }}
-      .date-chip-value {{
-        color: #312e81;
-        font-size: 32px;
-        line-height: 1;
-        font-weight: 900;
-        letter-spacing: -0.04em;
+      
+      .content {{ padding: 64px 80px 56px; position: relative; z-index: 2; flex: 1; display: flex; flex-direction: column; }}
+
+      header {{ text-align: center; margin-bottom: 56px; }}
+
+      .date-badge {{
+        display: inline-block;
+        background: var(--gold);
+        color: var(--deep-void);
+        padding: 14px 52px;
+        border-radius: 99px;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 36px;
+        font-weight: 800;
+        margin-bottom: 32px;
+        box-shadow: 0 14px 40px rgba(0,0,0,0.5), 0 0 28px var(--gold-glow);
+        letter-spacing: -0.01em;
       }}
+
       .title {{
-        margin: 14px 0 8px;
-        font-family: "Iowan Old Style", "Palatino Linotype", serif;
-        font-size: 38px;
-        line-height: 0.98;
+        margin: 0;
+        font-family: 'Playfair Display', serif;
+        font-size: 92px;
         font-weight: 700;
-        letter-spacing: -0.05em;
+        letter-spacing: 0.03em;
+        color: var(--text-gold);
+        text-shadow: 0 0 40px var(--gold-glow);
+        text-transform: uppercase;
+        line-height: 1;
       }}
       .subtitle {{
-        margin: 0;
+        margin: 20px 0 0;
         color: var(--muted);
-        font-size: 14px;
-        line-height: 1.5;
-        font-weight: 600;
+        font-size: 22px;
+        font-weight: 400;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
       }}
-      .hero-grid {{
+
+      .main-grid {{
         display: grid;
-        grid-template-columns: 1.3fr 0.9fr;
-        gap: 12px;
-        margin-top: 20px;
-        align-items: stretch;
+        grid-template-columns: 1fr 1fr;
+        row-gap: 44px;
+        column-gap: 32px;
+        margin-top: 8px;
       }}
-      .overview {{
+
+      .section-card {{
+        background: var(--glass-white);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 6px;
+        padding: 32px;
+        position: relative;
+      }}
+
+      .overview-section {{ grid-column: span 2; border: none; background: transparent; padding: 0; text-align: center; margin-bottom: 12px; }}
+      .overview-section h2 {{
+        font-family: 'Playfair Display', serif;
+        font-size: 32px;
+        color: var(--gold);
+        margin: 0 0 20px;
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        opacity: 0.9;
+      }}
+      .overview-section p {{
+        font-size: 26px;
+        line-height: 1.65;
+        max-width: 90%;
+        margin: 0 auto;
+        font-weight: 300;
+        color: #e2e8f0;
+      }}
+
+      .animal-grid {{ display: flex; justify-content: space-around; gap: 56px; margin-bottom: 4px; grid-column: span 2; padding: 0 60px; }}
+      .animal-item {{ text-align: center; flex: 1; }}
+
+      .animal-seal {{
+        width: 150px;
+        height: 150px;
+        margin: 0 auto 22px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(212, 175, 55, 0.15), transparent);
+        border: 1px solid rgba(212, 175, 55, 0.5);
         display: flex;
-        gap: 14px;
-        margin-top: 0;
-        padding: 16px;
-        border: 1px solid rgba(125, 211, 252, 0.35);
-        border-radius: 24px;
-        background: linear-gradient(135deg, rgba(239, 246, 255, 0.92), rgba(255, 255, 255, 0.8));
-      }}
-      .icon-box {{
-        width: 48px;
-        height: 48px;
-        flex: 0 0 auto;
-        display: inline-flex;
         align-items: center;
         justify-content: center;
-        border-radius: 16px;
-        background: rgba(255, 255, 255, 0.9);
-        border: 1px solid rgba(125, 211, 252, 0.2);
-        font-size: 22px;
+        position: relative;
+        box-shadow: 0 10px 32px rgba(0,0,0,0.4);
       }}
-      .overview h2, .panel h3 {{ margin: 0 0 4px; font-size: 17px; line-height: 1.2; }}
-      .overview p, .panel p, .list-item {{ margin: 0; font-size: 13px; line-height: 1.55; color: var(--muted); font-weight: 600; }}
-      .suudal {{
-        display: inline-flex;
+      .animal-seal::after {{
+        content: "";
+        position: absolute;
+        top: 8px; left: 8px; right: 8px; bottom: 8px;
+        border: 1px dashed rgba(212, 175, 55, 0.2);
+        border-radius: 50%;
+      }}
+
+      .animal-emoji {{
+        font-size: 76px;
+        filter: sepia(1) saturate(4) brightness(0.9) drop-shadow(0 4px 8px rgba(0,0,0,0.5));
+        z-index: 2;
+      }}
+
+      .animal-label {{ font-size: 15px; font-weight: 800; text-transform: uppercase; color: var(--muted); letter-spacing: 0.22em; margin-bottom: 8px; }}
+      .animal-names {{ font-size: 26px; font-weight: 700; color: var(--text-gold); text-shadow: 0 0 12px var(--gold-glow); }}
+
+      .panel {{ display: flex; flex-direction: column; gap: 12px; }}
+      .panel-title {{
+        font-family: 'Playfair Display', serif;
+        font-size: 26px;
+        color: var(--text-gold);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        display: flex;
         align-items: center;
-        margin-top: 8px;
-        padding: 6px 10px;
-        border-radius: 12px;
-        background: rgba(79, 70, 229, 0.08);
-        color: #4338ca;
-        font-size: 11px;
+        gap: 12px;
+      }}
+      .panel-icon {{ font-size: 22px; opacity: 0.75; }}
+      .panel-status {{ font-size: 16px; font-weight: 700; color: var(--gold); margin-left: auto; border: 1px solid var(--gold); padding: 4px 10px; letter-spacing: 0.05em; }}
+      .panel-content {{ font-size: 21px; line-height: 1.55; color: var(--muted); font-weight: 400; }}
+
+      .list-container {{ display: grid; grid-template-columns: 1fr 1fr; gap: 32px; grid-column: span 2; margin-top: 4px; }}
+      .list-box-title {{
+        font-size: 18px;
         font-weight: 800;
         text-transform: uppercase;
-        letter-spacing: 0.08em;
+        color: var(--text-gold);
+        letter-spacing: 0.12em;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
       }}
-      .year-grid {{ display: grid; gap: 12px; }}
-      .year-card, .panel {{ border-radius: 28px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.74); }}
-      .year-card {{ padding: 14px 14px; text-align: center; }}
-      .animal {{ font-size: 25px; margin-bottom: 8px; }}
-      .label {{ margin-bottom: 4px; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.16em; }}
-      .label.good {{ color: #059669; }}
-      .label.warn {{ color: #e11d48; }}
-      .year-value {{ font-size: 16px; font-weight: 800; line-height: 1.2; }}
-      .detail-grid, .list-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }}
-      .panel {{ position: relative; overflow: hidden; padding: 16px 16px 16px 18px; }}
-      .panel::before {{ content: ""; position: absolute; top: 12px; bottom: 12px; left: 0; width: 5px; border-radius: 999px; }}
-      .panel-head {{ display: flex; align-items: flex-start; gap: 10px; margin-bottom: 0; }}
-      .panel-icon {{
-        width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center;
-        border-radius: 14px; background: rgba(255, 255, 255, 0.92); border: 1px solid rgba(255, 255, 255, 0.6); font-size: 20px;
+      .list-box-title::after {{ content: ""; height: 1px; flex: 1; background: rgba(212, 175, 55, 0.15); }}
+
+      .list-items {{ display: grid; gap: 12px; }}
+      .item {{ display: flex; align-items: flex-start; gap: 12px; font-size: 20px; line-height: 1.45; color: #cbd5e1; font-weight: 400; }}
+      .item-mark {{ font-size: 18px; margin-top: 2px; }}
+      .item-mark.good {{ color: #10b981; }}
+      .item-mark.bad {{ color: #fb7185; }}
+
+      .footer {{ margin-top: auto; padding-top: 28px; text-align: center; opacity: 0.45; }}
+      .footer p {{ font-size: 14px; letter-spacing: 0.3em; text-transform: uppercase; line-height: 1.5; }}
+
+      .suudal-badge {{
+        display: inline-block;
+        margin-top: 14px;
+        padding: 6px 18px;
+        border: 1px solid rgba(212, 175, 55, 0.3);
+        font-size: 14px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--gold);
       }}
-      .hair-good {{ background: var(--emerald-soft); border-color: rgba(16, 185, 129, 0.18); }}
-      .hair-good::before {{ background: #10b981; }}
-      .hair-bad {{ background: var(--rose-soft); border-color: rgba(251, 113, 133, 0.18); }}
-      .hair-bad::before {{ background: #f43f5e; }}
-      .travel {{ background: var(--cyan-soft); border-color: rgba(34, 211, 238, 0.2); }}
-      .travel::before {{ background: #06b6d4; }}
-      .list-card {{ padding: 18px 18px; }}
-      .good-card {{ margin-top: 0; background: var(--emerald-soft); border-color: rgba(16, 185, 129, 0.16); }}
-      .bad-card {{ margin-top: 0; background: var(--amber-soft); border-color: rgba(251, 146, 60, 0.16); }}
-      .list-title {{ display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 17px; font-weight: 800; }}
-      .list-badge {{
-        width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;
-        border-radius: 999px; font-size: 16px;
-      }}
-      .list-badge.good {{ background: rgba(16, 185, 129, 0.12); }}
-      .list-badge.bad {{ background: rgba(244, 63, 94, 0.1); }}
-      .bullet-list {{ display: grid; gap: 8px; }}
-      .list-item {{ display: flex; align-items: flex-start; gap: 8px; }}
-      .dot {{ margin-top: 2px; font-size: 14px; line-height: 1; font-weight: 900; }}
-      .dot.good {{ color: #059669; }}
-      .dot.bad {{ color: #e11d48; }}
-      .footer {{ margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(148, 163, 184, 0.14); text-align: center; }}
-      .footer p {{ margin: 0; color: #94a3b8; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.18em; }}
-      strong {{ color: #0f172a; }}
     </style>
   </head>
   <body>
@@ -401,76 +461,63 @@ def _build_horoscope_html(post_text: str, source_context: str | None) -> str:
       <article class="card">
         <div class="content">
           <header>
-            <div class="date-chip"><div class="date-chip-value">{_escape(compact_date)}</div></div>
+            <div class="date-badge">{_escape(compact_date)}</div>
             <h1 class="title">Өдрийн Зурхай</h1>
             <p class="subtitle">{_escape(biligiin_line)}</p>
           </header>
-
-          <section class="hero-grid">
-            <section class="overview">
-              <div class="icon-box">✨</div>
-              <div>
-                <h2>Өдрийн ерөнхий төлөв</h2>
-                <p>{_escape(general_text)}</p>
-                <div class="suudal">Суудал: {_escape(suudal)}</div>
-              </div>
+          
+          <section class="main-grid">
+            <section class="section-card overview-section">
+              <h2>Өдрийн Төлөв</h2>
+              <p>{_escape(general_text)}</p>
+              <div class="suudal-badge">Суудал: {_escape(suudal)}</div>
             </section>
-
-            <section class="year-grid">
-              <div class="year-card">
-                <div class="animal">{_escape(favorable_emoji)}</div>
-                <div class="label good">Сайн жилтэн</div>
-                <div class="year-value">{_escape(", ".join(favorable_years))}</div>
-              </div>
-              <div class="year-card">
-                <div class="animal">{_escape(caution_emoji)}</div>
-                <div class="label warn">Болгоомжлох</div>
-                <div class="year-value">{_escape(", ".join(caution_years))}</div>
-              </div>
-            </section>
-          </section>
-
-          <section class="detail-grid">
-            <div class="panel {hair_panel_class}">
-              <div class="panel-head">
-                <div class="panel-icon">✂️</div>
-                <div>
-                  <h3>Үс засуулах: {_escape(hair_status)}</h3>
-                  <p>{_escape(hair_text)}</p>
+            
+            <div class="animal-grid">
+              <div class="animal-item">
+                <div class="animal-seal">
+                  <div class="animal-emoji">{_escape(favorable_emoji)}</div>
                 </div>
+                <div class="animal-label">Сайн жилтэн</div>
+                <div class="animal-names">{_escape(", ".join(favorable_years))}</div>
+              </div>
+              <div class="animal-item">
+                <div class="animal-seal">
+                  <div class="animal-emoji">{_escape(caution_emoji)}</div>
+                </div>
+                <div class="animal-label">Болгоомжлох</div>
+                <div class="animal-names">{_escape(", ".join(caution_years))}</div>
               </div>
             </div>
-            <div class="panel travel">
-              <div class="panel-head">
-                <div class="panel-icon">🧭</div>
-                <div>
-                  <h3>Аян замд гарах: {_escape(travel_status)}</h3>
-                  <p>{_escape(travel_text)}</p>
-                </div>
+
+            <section class="section-card panel">
+              <div class="panel-title">
+                <span class="panel-icon">✂️</span>
+                <span>Үс засуулах</span>
+                <span class="panel-status">{_escape(hair_status)}</span>
+              </div>
+              <div class="panel-content">{_escape(hair_text)}</div>
+            </section>
+            
+            <section class="section-card panel">
+              <div class="panel-title">
+                <span class="panel-icon">🧭</span>
+                <span>Аян замд</span>
+                <span class="panel-status">{_escape(travel_status)}</span>
+              </div>
+              <div class="panel-content">{_escape(travel_text)}</div>
+            </section>
+            
+            <div class="list-container">
+              <div class="list-box">
+                <div class="list-box-title">Үйл хийхэд сайн</div>
+                <div class="list-items">{good_activities_html.replace('list-item', 'item').replace('dot', 'item-mark')}</div>
+              </div>
+              <div class="list-box">
+                <div class="list-box-title">Цээрлэх зүйлс</div>
+                <div class="list-items">{caution_html.replace('list-item', 'item').replace('dot', 'item-mark')}</div>
               </div>
             </div>
-          </section>
-
-          <section class="list-grid">
-            <section class="panel list-card good-card">
-              <div class="list-title">
-                <div class="list-badge good">✓</div>
-                <div>Үйл хийхэд сайн</div>
-              </div>
-              <div class="bullet-list">
-                {good_activities_html}
-              </div>
-            </section>
-
-            <section class="panel list-card bad-card">
-              <div class="list-title">
-                <div class="list-badge bad">✕</div>
-                <div>Цээрлэх зүйлс</div>
-              </div>
-              <div class="bullet-list">
-                {caution_html}
-              </div>
-            </section>
           </section>
 
           <footer class="footer">
@@ -505,8 +552,8 @@ def generate_horoscope_card_image(
             "npx",
             "playwright",
             "screenshot",
-            "--full-page",
-            "--viewport-size=720,720",
+            "--viewport-size=1080,1350",
+            "--wait-for-timeout=2500",
             f"file://{html_path}",
             str(png_path),
         ],
