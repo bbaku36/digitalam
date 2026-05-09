@@ -573,12 +573,7 @@ def _build_horoscope_html(post_text: str, source_context: str | None) -> str:
 </html>"""
 
 
-def generate_horoscope_card_image(
-    *,
-    post_text: str,
-    source_context: str | None,
-    slug: str,
-) -> Path:
+def _render_html_to_png(html_content: str, slug: str) -> Path:
     node = shutil.which("node")
     if not node:
         raise RuntimeError("node_not_found_for_image_card")
@@ -587,7 +582,6 @@ def generate_horoscope_card_image(
     html_path = GENERATED_DIR / f"{slug}.html"
     png_path = GENERATED_DIR / f"{slug}.png"
 
-    html_content = _build_horoscope_html(post_text, source_context)
     html_path.write_text(html_content, encoding="utf-8")
 
     completed = subprocess.run(
@@ -611,8 +605,427 @@ def generate_horoscope_card_image(
         raise RuntimeError(reason or "playwright_screenshot_failed")
 
     if not png_path.exists():
-        raise RuntimeError("horoscope_card_png_missing")
+        raise RuntimeError("card_png_missing")
     return png_path
+
+
+def generate_horoscope_card_image(
+    *,
+    post_text: str,
+    source_context: str | None,
+    slug: str,
+) -> Path:
+    return _render_html_to_png(_build_horoscope_html(post_text, source_context), slug)
+
+
+def generate_weekly_horoscope_card_image(
+    *,
+    post_text: str,
+    source_context: str | None,
+    slug: str,
+) -> Path:
+    return _render_html_to_png(_build_weekly_horoscope_html(post_text, source_context), slug)
+
+
+WEEKDAY_HEADER_RE = re.compile(r"^\[(.+?)\s+(\d{4}-\d{2}-\d{2})\]$")
+
+
+def _parse_weekly_source_context(source_context: str | None) -> list[dict[str, str]]:
+    if not source_context:
+        return []
+    entries: list[dict[str, str]] = []
+    current: dict[str, str] | None = None
+    field_prefixes = (
+        ("Bilgiin line: ", "bilgiin"),
+        ("Haircut omen: ", "haircut_omen"),
+        ("Haircut suitability: ", "haircut_suitability"),
+        ("Travel guidance: ", "travel"),
+        ("Good activities: ", "good_activities"),
+        ("Bad activities: ", "bad_activities"),
+        ("Caution: ", "caution"),
+        ("Summary paragraph: ", "summary"),
+    )
+    for raw in source_context.splitlines():
+        stripped = raw.strip()
+        if not stripped:
+            continue
+        match = WEEKDAY_HEADER_RE.match(stripped)
+        if match:
+            if current:
+                entries.append(current)
+            current = {
+                "weekday": match.group(1),
+                "date": match.group(2),
+                "bilgiin": "",
+                "haircut_omen": "",
+                "haircut_suitability": "",
+                "travel": "",
+                "good_activities": "",
+                "bad_activities": "",
+                "caution": "",
+                "summary": "",
+            }
+            continue
+        if current is None:
+            continue
+        for prefix, key in field_prefixes:
+            if stripped.startswith(prefix):
+                current[key] = stripped[len(prefix) :].strip()
+                break
+    if current:
+        entries.append(current)
+    return entries
+
+
+def _weekly_hair_status(suitability: str) -> tuple[str, str]:
+    lower = suitability.lower()
+    if "тохиромжгүй" in lower:
+        return "bad", "Тохиромжгүй"
+    return "good", "Тохиромжтой"
+
+
+def _weekly_action_status(caution: str) -> tuple[str, str]:
+    lower = caution.lower()
+    if "сөрөг муу нөлөө" in lower or "хянамгай" in lower:
+        return "warn", "Хянамгай"
+    return "good", "Сайн"
+
+
+def _direction_short(travel: str) -> str:
+    cleaned = travel.strip().lower()
+    if not cleaned:
+        return "—"
+    base = re.split(r"\s+мөр", cleaned, maxsplit=1)[0].strip()
+    base = re.sub(r"\s*зүгт?$", "", base).strip()
+    return base.capitalize() if base else "—"
+
+
+def _short_omen(text: str, *, max_chars: int = 26) -> str:
+    cleaned = text.strip().rstrip(".")
+    if not cleaned:
+        return ""
+    if len(cleaned) <= max_chars:
+        return cleaned
+    return cleaned[: max_chars - 1].rstrip() + "…"
+
+
+def _short_date_label(date_str: str) -> str:
+    parts = date_str.split("-")
+    if len(parts) == 3:
+        return f"{int(parts[1]):02d}.{int(parts[2]):02d}"
+    return date_str
+
+
+def _pick_highlight_day(entries: list[dict[str, str]], picker) -> tuple[str, str]:
+    for entry in entries:
+        if picker(entry):
+            return entry["weekday"], _short_date_label(entry["date"])
+    return "—", ""
+
+
+def build_weekly_horoscope_image_caption(post_text: str) -> str:
+    lines = [line.strip() for line in post_text.splitlines() if line.strip()]
+    headline = next(
+        (line for line in lines if line.startswith("7 хоногийн") or "хоногийн" in line.lower()),
+        lines[0] if lines else "7 хоногийн зурхай",
+    )
+    hashtags = [line for line in lines if line.startswith("#")]
+    caption_lines = [
+        headline,
+        "Зурган дээр: 7 өдрийн үс засуулах, аян зам, үйл хийхийн чиглэл нэг харцаар.",
+    ]
+    if hashtags:
+        caption_lines.append(hashtags[-1])
+    caption_lines.append("Долоо хоногийн зурхайг өдөр бүр шинэчлэн авах бол манай page-ийг дагаарай.")
+    return "\n".join(caption_lines).strip()
+
+
+def _build_weekly_horoscope_html(post_text: str, source_context: str | None) -> str:
+    entries = _parse_weekly_source_context(source_context)
+    if len(entries) < 7:
+        raise ValueError("weekly_source_missing_days")
+
+    week_range = _extract_source_value(source_context, "Week range: ").strip()
+    if week_range:
+        week_range_display = week_range.replace(".", "-").replace("-", ".", 2)
+        week_range_display = week_range
+    else:
+        week_range_display = ""
+
+    rows_html_parts: list[str] = []
+    for entry in entries:
+        weekday = entry.get("weekday", "")
+        date_label = _short_date_label(entry.get("date", ""))
+        hair_class, hair_label = _weekly_hair_status(entry.get("haircut_suitability", ""))
+        hair_brief = _short_omen(entry.get("haircut_omen", "") or hair_label, max_chars=24)
+        direction = _direction_short(entry.get("travel", ""))
+        action_class, action_label = _weekly_action_status(entry.get("caution", ""))
+        action_first = _split_items(entry.get("good_activities", ""), limit=1)
+        action_brief = _short_omen(action_first[0] if action_first else action_label, max_chars=22)
+
+        rows_html_parts.append(
+            f"""
+        <div class="week-row">
+          <div class="cell cell-day">
+            <div class="weekday">{_escape(weekday)}</div>
+            <div class="weekdate">{_escape(date_label)}</div>
+          </div>
+          <div class="cell cell-stat status-{hair_class}">
+            <div class="stat-icon">✂</div>
+            <div class="stat-label">{_escape(hair_label)}</div>
+            <div class="stat-brief">{_escape(hair_brief)}</div>
+          </div>
+          <div class="cell cell-stat status-good">
+            <div class="stat-icon">🧭</div>
+            <div class="stat-label">{_escape(direction)}</div>
+            <div class="stat-brief">мөрөө гаргавал</div>
+          </div>
+          <div class="cell cell-stat status-{action_class}">
+            <div class="stat-icon">📿</div>
+            <div class="stat-label">{_escape(action_label)}</div>
+            <div class="stat-brief">{_escape(action_brief)}</div>
+          </div>
+        </div>"""
+        )
+
+    rows_html = "\n".join(rows_html_parts)
+
+    best_hair_day, best_hair_date = _pick_highlight_day(
+        entries, lambda e: "тохиромжгүй" not in e.get("haircut_suitability", "").lower()
+    )
+    best_action_day, best_action_date = _pick_highlight_day(
+        entries, lambda e: "хянамгай" not in e.get("caution", "").lower() and bool(e.get("good_activities"))
+    )
+    best_travel_day, best_travel_date = entries[0]["weekday"], _short_date_label(entries[0]["date"])
+    for entry in entries:
+        guidance = entry.get("travel", "").lower()
+        if "зохистой" in guidance and "болгоомж" not in guidance:
+            best_travel_day = entry["weekday"]
+            best_travel_date = _short_date_label(entry["date"])
+            break
+
+    return f"""<!doctype html>
+<html lang="mn">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Weekly Horoscope Card</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Montserrat:wght@400;500;700;800&display=swap');
+
+      :root {{
+        --paper: #f8f1de;
+        --paper-deep: #efe2c0;
+        --paper-soft: #fbf6e8;
+        --ink: #2a1f12;
+        --ink-soft: #4a3a25;
+        --ink-mute: #7a6745;
+        --gold: #b8860b;
+        --gold-soft: #c9a857;
+        --line: rgba(125, 95, 32, 0.22);
+        --good: #4f7032;
+        --warn: #b67a1f;
+        --bad: #a14a3c;
+        --row-good: rgba(79, 112, 50, 0.08);
+        --row-warn: rgba(182, 122, 31, 0.10);
+        --row-bad: rgba(161, 74, 60, 0.10);
+      }}
+      * {{ box-sizing: border-box; }}
+      html, body {{ margin: 0; background: var(--paper); font-family: 'Montserrat', sans-serif; color: var(--ink); width: 1080px; height: 1350px; overflow: hidden; }}
+      .page {{ display: flex; justify-content: center; padding: 0; width: 1080px; height: 1350px; }}
+
+      .card {{
+        width: 1080px;
+        height: 1350px;
+        background:
+          radial-gradient(circle at 12% 18%, rgba(255, 240, 200, 0.7), transparent 45%),
+          radial-gradient(circle at 88% 82%, rgba(212, 175, 55, 0.12), transparent 45%),
+          linear-gradient(160deg, var(--paper-soft) 0%, var(--paper) 55%, var(--paper-deep) 100%);
+        position: relative;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        display: flex;
+        flex-direction: column;
+      }}
+      .card::before {{
+        content: "";
+        position: absolute;
+        top: -220px; right: -220px;
+        width: 900px; height: 900px;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' stroke='%23b8860b' stroke-width='0.15' fill='none' opacity='0.18'/%3E%3Ccircle cx='50' cy='50' r='35' stroke='%23b8860b' stroke-width='0.12' fill='none' opacity='0.14'/%3E%3C/svg%3E");
+        background-size: contain; background-repeat: no-repeat;
+        pointer-events: none; z-index: 0; opacity: 0.45;
+      }}
+
+      .content {{ padding: 60px 70px 50px; position: relative; z-index: 2; flex: 1; display: flex; flex-direction: column; }}
+
+      header {{ text-align: center; margin-bottom: 32px; }}
+      .date-badge {{
+        display: inline-block;
+        background: var(--gold);
+        color: var(--paper-soft);
+        padding: 12px 44px;
+        border-radius: 99px;
+        font-size: 28px;
+        font-weight: 800;
+        margin-bottom: 24px;
+        box-shadow: 0 8px 24px rgba(125, 95, 32, 0.22);
+        letter-spacing: 0.02em;
+      }}
+      .title {{
+        margin: 0;
+        font-family: 'Playfair Display', serif;
+        font-size: 76px;
+        font-weight: 700;
+        color: var(--ink);
+        line-height: 1;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+      }}
+      .subtitle {{
+        margin: 16px 0 0;
+        color: var(--ink-mute);
+        font-size: 19px;
+        font-weight: 500;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+      }}
+
+      .week-grid {{ display: flex; flex-direction: column; gap: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: rgba(255, 250, 232, 0.55); box-shadow: 0 4px 12px rgba(125, 95, 32, 0.06); }}
+
+      .header-row, .week-row {{ display: grid; grid-template-columns: 200px 1fr 1fr 1fr; align-items: center; }}
+      .header-row {{
+        padding: 14px 20px;
+        background: rgba(184, 134, 11, 0.10);
+        border-bottom: 1px solid var(--line);
+      }}
+      .header-row .col-label {{
+        font-size: 14px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        color: var(--ink-mute);
+        text-align: center;
+      }}
+      .header-row .col-label.day {{ text-align: left; padding-left: 8px; }}
+
+      .week-row {{ padding: 14px 20px; border-bottom: 1px solid var(--line); min-height: 92px; }}
+      .week-row:last-child {{ border-bottom: none; }}
+      .week-row:nth-child(even) {{ background: rgba(255, 240, 200, 0.18); }}
+
+      .cell-day {{ display: flex; flex-direction: column; align-items: flex-start; padding-left: 8px; gap: 2px; }}
+      .weekday {{
+        font-family: 'Playfair Display', serif;
+        font-size: 30px;
+        font-weight: 700;
+        color: var(--ink);
+        line-height: 1;
+      }}
+      .weekdate {{ font-size: 18px; font-weight: 600; color: var(--ink-mute); letter-spacing: 0.04em; }}
+
+      .cell-stat {{
+        display: grid;
+        grid-template-columns: 38px 1fr;
+        grid-template-rows: auto auto;
+        gap: 2px 12px;
+        align-items: center;
+        padding: 0 14px;
+      }}
+      .stat-icon {{
+        grid-row: 1 / span 2;
+        font-size: 28px;
+        line-height: 1;
+        text-align: center;
+      }}
+      .stat-label {{ font-size: 18px; font-weight: 700; color: var(--ink); line-height: 1.15; }}
+      .stat-brief {{ font-size: 13px; color: var(--ink-mute); line-height: 1.25; letter-spacing: 0.02em; }}
+      .status-good .stat-label {{ color: var(--good); }}
+      .status-warn .stat-label {{ color: var(--warn); }}
+      .status-bad .stat-label {{ color: var(--bad); }}
+
+      .summary {{
+        margin-top: 28px;
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 16px;
+      }}
+      .summary-card {{
+        background: rgba(255, 250, 232, 0.65);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 18px 20px;
+        text-align: center;
+      }}
+      .summary-icon {{ font-size: 26px; margin-bottom: 4px; }}
+      .summary-label {{
+        font-size: 12px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        color: var(--ink-mute);
+        margin-bottom: 6px;
+      }}
+      .summary-day {{
+        font-family: 'Playfair Display', serif;
+        font-size: 24px;
+        font-weight: 700;
+        color: var(--gold);
+      }}
+      .summary-date {{ font-size: 14px; color: var(--ink-mute); margin-top: 2px; }}
+
+      .footer {{ margin-top: auto; padding-top: 22px; text-align: center; opacity: 0.65; }}
+      .footer p {{ font-size: 13px; letter-spacing: 0.28em; text-transform: uppercase; line-height: 1.5; color: var(--ink-mute); margin: 0; }}
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <article class="card">
+        <div class="content">
+          <header>
+            <div class="date-badge">{_escape(week_range_display)}</div>
+            <h1 class="title">7 хоногийн зурхай</h1>
+            <p class="subtitle">Үс засуулах · Аян зам · Үйл хийх</p>
+          </header>
+
+          <section class="week-grid">
+            <div class="header-row">
+              <div class="col-label day">Өдөр</div>
+              <div class="col-label">✂ Үс засуулах</div>
+              <div class="col-label">🧭 Аян замд</div>
+              <div class="col-label">📿 Үйл хийхэд</div>
+            </div>
+            {rows_html}
+          </section>
+
+          <section class="summary">
+            <div class="summary-card">
+              <div class="summary-icon">✂</div>
+              <div class="summary-label">Үс засуулах өдөр</div>
+              <div class="summary-day">{_escape(best_hair_day)}</div>
+              <div class="summary-date">{_escape(best_hair_date)}</div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-icon">🧭</div>
+              <div class="summary-label">Аян замд гарах</div>
+              <div class="summary-day">{_escape(best_travel_day)}</div>
+              <div class="summary-date">{_escape(best_travel_date)}</div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-icon">📿</div>
+              <div class="summary-label">Үйл хийхэд сайн</div>
+              <div class="summary-day">{_escape(best_action_day)}</div>
+              <div class="summary-date">{_escape(best_action_date)}</div>
+            </div>
+          </section>
+
+          <footer class="footer">
+            <p>Эх сурвалж · gogo.mn / Цаг тооны бичиг</p>
+          </footer>
+        </div>
+      </article>
+    </main>
+  </body>
+</html>"""
 
 
 def cleanup_generated_card_assets(image_path: str | Path) -> None:
