@@ -143,7 +143,7 @@ jobs:
           FORCE_SLOT_HOUR: "${{ inputs.force_slot_hour }}"
           POST_CATEGORY: "${{ inputs.post_category }}"
           ENABLE_MIDNIGHT_POST: "1"
-          HOROSCOPE_IMAGE_POST: "1"
+          HOROSCOPE_IMAGE_POST: "0"
           PIN_SCHEDULED_POSTS: "0"
           PIN_CATEGORIES: "horoscope,zodiac_horoscope"
           HTTP_RETRIES: "4"
