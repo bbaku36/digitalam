@@ -51,21 +51,31 @@ async function loadRenderedText(url) {
   return text;
 }
 
-async function postDaycolorHtml(targetDate) {
-  const response = await fetch("https://gogo.mn/horoscope/daycolor", {
-    method: "POST",
+const GOGO_API_BASE = "https://backend.gogo.mn/api/v1";
+
+async function getGogoJson(path) {
+  const response = await fetch(`${GOGO_API_BASE}${path}`, {
     headers: {
-      "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-      "X-Requested-With": "XMLHttpRequest",
+      Accept: "application/json",
+      "User-Agent": "Mozilla/5.0 (compatible; gogo-autopost)",
     },
-    body: new URLSearchParams({ date: targetDate }).toString(),
   });
 
   if (!response.ok) {
-    throw new Error(`daycolor_http_${response.status}`);
+    throw new Error(`gogo_api_http_${response.status}`);
   }
 
-  return response.text();
+  return response.json();
+}
+
+async function fetchDaycolor(targetDate) {
+  const query = new URLSearchParams({ date: targetDate }).toString();
+  const data = await getGogoJson(`/horoscope/daycolor?${query}`);
+  const dayColor = data && data.data && data.data.dayColor;
+  if (!dayColor) {
+    throw new Error("daycolor_payload_missing");
+  }
+  return dayColor;
 }
 
 function populateSummaryActions(info) {
@@ -213,32 +223,48 @@ function parseCalendar(text) {
   return info;
 }
 
-function parseWesternToday(text, targetDate) {
-  const dateSlash = targetDate.replace(/-/g, "/");
-  const stopPattern =
-    "(?:Өнөөдөр\\s+\\d{4}/\\d{2}/\\d{2}|Маргааш\\s+\\d{4}/\\d{2}/\\d{2}|Даваа\\s+\\d{4}/\\d{2}/\\d{2}|Мягмар\\s+\\d{4}/\\d{2}/\\d{2}|Лхагва\\s+\\d{4}/\\d{2}/\\d{2}|Пүрэв\\s+\\d{4}/\\d{2}/\\d{2}|Баасан\\s+\\d{4}/\\d{2}/\\d{2}|Бямба\\s+\\d{4}/\\d{2}/\\d{2}|Ням\\s+\\d{4}/\\d{2}/\\d{2}|Өнөөдөр\\s+Энэ\\s+долоо\\s+хоног|Шинэ мэдээ|Онцлох мэдээ|Тренд мэдээ)";
-  const regex = new RegExp(`Өнөөдөр\\s+${dateSlash}\\s+(.+?)(?=${stopPattern})`, "gu");
-  const paragraphs = [];
+const UB_OFFSET_MS = 8 * 60 * 60 * 1000;
 
-  for (const match of text.matchAll(regex)) {
-    const value = normalizeText(match[1]);
-    if (value) {
-      paragraphs.push(value);
+function toUbDateLabel(value) {
+  const timestamp = Date.parse(value || "");
+  if (Number.isNaN(timestamp)) {
+    return "";
+  }
+  const date = new Date(timestamp + UB_OFFSET_MS);
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
+}
+
+async function fetchWesternToday(targetDate) {
+  const year = String(targetDate).slice(0, 4);
+  const subType = encodeURIComponent("Өдөр");
+  const data = await getGogoJson(`/horoscope/data/${subType}?year=${encodeURIComponent(year)}`);
+  const list = data && data.data && Array.isArray(data.data.horoscope) ? data.data.horoscope : [];
+
+  const bySign = new Map();
+  for (const item of list) {
+    if (toUbDateLabel(item.westHoroscopeDescStartDate) !== targetDate) {
+      continue;
+    }
+    const sign = item.zodiac && item.zodiac.zodiacName ? normalizeText(item.zodiac.zodiacName) : "";
+    const text = normalizeText(item.westHoroscopeDescDesc || "");
+    if (sign && text) {
+      bySign.set(sign, text);
     }
   }
 
-  if (paragraphs.length < ZODIAC_SIGNS.length) {
-    throw new Error(`western_today_entries_too_few:${paragraphs.length}`);
-  }
-
-  const entries = ZODIAC_SIGNS.map((sign, index) => ({
+  const entries = ZODIAC_SIGNS.filter((sign) => bySign.has(sign)).map((sign) => ({
     sign,
-    text: paragraphs[index],
+    text: bySign.get(sign),
   }));
 
+  if (entries.length < ZODIAC_SIGNS.length) {
+    throw new Error(`western_today_entries_too_few:${entries.length}`);
+  }
+
   return {
-    source_url: "https://gogo.mn/horoscope/western/today",
-    source_date: dateSlash,
+    source_url: "https://gogo.mn/horoscope",
+    source_endpoint: `${GOGO_API_BASE}/horoscope/data/Өдөр`,
+    source_date: String(targetDate).replace(/-/g, "/"),
     entries,
   };
 }
@@ -282,39 +308,47 @@ function parseWesternWeek(text) {
   };
 }
 
-function parseCalendarDayHtml(html, targetDate) {
-  const virtualConsole = new VirtualConsole();
-  virtualConsole.on("jsdomError", () => {});
-  const dom = new JSDOM(`<body>${html}</body>`, { virtualConsole });
-  const block = normalizeText(dom.window.document.body.textContent || "");
-  dom.window.close();
-
+function buildCalendarDayInfo(dayColor, targetDate) {
+  const block = normalizeText(dayColor.udriinUngu || "");
   if (!block) {
     throw new Error("calendar_day_block_not_found");
   }
 
   const info = {
     source_url: "https://gogo.mn/horoscope",
-    source_endpoint: "https://gogo.mn/horoscope/daycolor",
+    source_endpoint: `${GOGO_API_BASE}/horoscope/daycolor`,
     source_date: targetDate,
     block,
+    summary: block,
   };
 
-  const dateMatch = block.match(
-    /Билгийн тооллын\s+(\d+)\s+(\d{4}\.\d{2}\.\d{2})\s*\/\s*([А-Яа-яӨөҮүЁё]+)\s+гараг\s+(.+?)\s+Үс засуулвал:\s*(.+?)\s+Наран ургах,\s*шингэх:\s*([0-9\.\-]+)/u,
-  );
-  if (dateMatch) {
-    info.bilgiin_day = dateMatch[1];
-    info.gregorian_date = dateMatch[2];
-    info.weekday = dateMatch[3];
-    info.lunar_day_text = normalizeText(dateMatch[4]);
-    info.haircut_omen = normalizeText(dateMatch[5]);
-    info.sun_times = normalizeText(dateMatch[6]);
+  const argaDate = String(dayColor.argaDate || "").trim();
+  if (argaDate) {
+    info.gregorian_date = argaDate.replace(/-/g, ".");
   }
 
-  const summaryMatch = block.match(/Аргын тооллын\s+.+$/u);
-  if (summaryMatch) {
-    info.summary = normalizeText(summaryMatch[0]);
+  const weekdayMatch = block.match(/([А-Яа-яӨөҮүЁё]+)\s+гараг\./u);
+  if (weekdayMatch) {
+    info.weekday = normalizeText(weekdayMatch[1]);
+  }
+
+  const bilgiinDate = dayColor.bilgiinDate || {};
+  if (bilgiinDate.bilgiinDateDay !== undefined && bilgiinDate.bilgiinDateDay !== null) {
+    info.bilgiin_day = String(bilgiinDate.bilgiinDateDay);
+  }
+
+  const lunarMatch = block.match(/Билгийн тооллын\s+\d+,\s*(.+?өдөр)\./u);
+  if (lunarMatch) {
+    info.lunar_day_text = normalizeText(lunarMatch[1]);
+  }
+
+  if (dayColor.sunRise) {
+    info.sun_times = normalizeText(dayColor.sunRise);
+  } else {
+    const sunMatch = block.match(/наран ургах,\s*шингэх цаг нь:\s*([0-9:.\.\-]+)/u);
+    if (sunMatch) {
+      info.sun_times = normalizeText(sunMatch[1]);
+    }
   }
 
   const goodTimesMatch = block.match(/Өдрийн сайн цаг нь\s+(.+?)\s+болой\./u);
@@ -330,6 +364,17 @@ function parseCalendarDayHtml(html, targetDate) {
   const haircutLineMatch = block.match(/Үс шинээр үргээлгэх буюу засуулахад\s+(.+?)\./u);
   if (haircutLineMatch) {
     info.haircut_line = normalizeText(haircutLineMatch[1]);
+    info.haircut_omen = info.haircut_line;
+  }
+
+  if (dayColor.barildlga && dayColor.barildlga.barildlgaName) {
+    info.barildlaga = normalizeText(dayColor.barildlga.barildlgaName);
+  }
+  if (dayColor.shutenBarildlga && dayColor.shutenBarildlga.shutenBarildlgaName) {
+    info.shuteen_barildlaga = normalizeText(dayColor.shutenBarildlga.shutenBarildlgaName);
+  }
+  if (dayColor.hulul && dayColor.hulul.hululName) {
+    info.suudal = normalizeText(dayColor.hulul.hululName);
   }
 
   populateSummaryActions(info);
@@ -353,8 +398,8 @@ async function main() {
   }
 
   if (MODE === "western_today") {
-    const text = await loadRenderedText("https://gogo.mn/horoscope/western/today");
-    process.stdout.write(`${JSON.stringify(parseWesternToday(text, TARGET_DATE), null, 2)}\n`);
+    const payload = await fetchWesternToday(TARGET_DATE);
+    process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
     return;
   }
 
@@ -365,8 +410,8 @@ async function main() {
   }
 
   if (MODE === "calendar_day") {
-    const html = await postDaycolorHtml(TARGET_DATE);
-    process.stdout.write(`${JSON.stringify(parseCalendarDayHtml(html, TARGET_DATE), null, 2)}\n`);
+    const dayColor = await fetchDaycolor(TARGET_DATE);
+    process.stdout.write(`${JSON.stringify(buildCalendarDayInfo(dayColor, TARGET_DATE), null, 2)}\n`);
     return;
   }
 
