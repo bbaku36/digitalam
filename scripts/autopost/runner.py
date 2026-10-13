@@ -24,9 +24,11 @@ from .facebook import (
 from .image_cards import (
     build_horoscope_image_caption,
     build_weekly_horoscope_image_caption,
+    build_zodiac_horoscope_image_caption,
     cleanup_generated_card_assets,
     generate_horoscope_card_image,
     generate_weekly_horoscope_card_image,
+    generate_zodiac_horoscope_card_image,
 )
 from .notifications import notify_gemini_failure
 from .schedule import determine_post_category, parse_pin_categories, pin_meta_key_for_category
@@ -75,8 +77,9 @@ def main() -> int:
         return 1
 
     horoscope_image_mode = category == "horoscope" and env_flag("HOROSCOPE_IMAGE_POST", "0")
+    zodiac_image_mode = category == "zodiac_horoscope" and env_flag("ZODIAC_HOROSCOPE_IMAGE_POST", "0")
     weekly_image_mode = category == "weekly_horoscope" and env_flag("WEEKLY_HOROSCOPE_IMAGE_POST", "0")
-    image_mode = horoscope_image_mode or weekly_image_mode
+    image_mode = horoscope_image_mode or zodiac_image_mode or weekly_image_mode
     image_path = None
     image_caption = ""
     if image_mode:
@@ -91,6 +94,13 @@ def main() -> int:
                     slug=slug,
                 )
                 image_caption = build_horoscope_image_caption(message)
+            elif zodiac_image_mode:
+                image_path = generate_zodiac_horoscope_card_image(
+                    post_text=message,
+                    source_context=source_context,
+                    slug=slug,
+                )
+                image_caption = build_zodiac_horoscope_image_caption(message)
             else:
                 image_path = generate_weekly_horoscope_card_image(
                     post_text=message,

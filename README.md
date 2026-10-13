@@ -90,6 +90,22 @@ After that, it runs automatically by schedule (Ulaanbaatar 06:00, 08:00).
   - Auto-pin workflow болон scheduled auto-pin оролдлого GitHub Actions дээр унтраалттай
   - Хэрэв дараа нь pin хэрэгтэй бол Page UI дээрээс гараар pin хийнэ
 
+## Image posts
+
+Дараах категориуд текст биш **зурагтай карт** болж постлогдоно (зураг + caption):
+
+- `horoscope` — 06:00 өдрийн зурхайн карт (`HOROSCOPE_IMAGE_POST=1`)
+- `zodiac_horoscope` — 08:00 12 ордын зурхайн карт (`ZODIAC_HOROSCOPE_IMAGE_POST=1`)
+- `weekly_horoscope` — долоо хоногийн тойм карт (`WEEKLY_HOROSCOPE_IMAGE_POST=1`)
+
+Картууд `scripts/autopost/image_cards.py` дотор HTML/CSS хэлбэрээр байрлаж, Playwright Chromium-оор
+1080x1350 PNG болгон render хийгдэнэ (GitHub Actions дээр `npx playwright install --with-deps chromium`
+аль хэдийн ажилладаг). Локал дээр тестлэхэд:
+
+```bash
+python3 test_design.py
+```
+
 ## Gemini Failure Alerts
 
 - `ALERT_ON_GEMINI_FAILURE=1` үед Gemini generation алдагдвал alert trigger хийнэ.
