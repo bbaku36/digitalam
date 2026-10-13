@@ -242,16 +242,9 @@ def _travel_status(text: str) -> str:
 
 
 def build_horoscope_image_caption(post_text: str) -> str:
-    parsed = _parse_horoscope_post(post_text)
-    hashtags = [line.strip() for line in post_text.splitlines() if line.strip().startswith("#")]
-    caption_lines = [
-        parsed.get("date_line", "").strip(),
-        "Зурган дээр: өдрийн ерөнхий төлөв, үс засуулах, аян замд гарах, үйл хийхэд сайн, сайн жилтэн, болгоомжлох жилтэн, цээрлэх зүйлс багтсан.",
-    ]
-    if hashtags:
-        caption_lines.append(hashtags[-1])
-    caption_lines.append("Өдөр бүр шинэ зурхайн мэдээллийг авах бол манай page-ийг дагаарай.")
-    return "\n".join(line for line in caption_lines if line).strip()
+    body = post_text.strip()
+    follow = "Өдөр бүр шинэ зурхайн мэдээллийг авах бол манай page-ийг дагаарай."
+    return f"{body}\n\n{follow}".strip()
 
 
 ROYAL_GLYPHS = ["♈", "♉", "♊", "♋", "♌", "♍", "♎", "♏", "♐", "♑", "♒", "♓"]
@@ -366,7 +359,7 @@ html, body {
   font-family: 'Montserrat', sans-serif; color: var(--cream); -webkit-font-smoothing: antialiased;
 }
 .bg {
-  position: relative; width: 1080px; height: 1350px; padding: 44px; overflow: hidden;
+  position: relative; width: 1080px; height: 1350px; padding: 36px; overflow: hidden;
   background:
     radial-gradient(85% 55% at 50% 0%, rgba(226,178,88,.20), transparent 62%),
     radial-gradient(circle at 50% 46%, #5e1c20 0%, #440f12 52%, #280809 100%);
@@ -378,13 +371,13 @@ html, body {
 .const.c { top:120px; right:120px; width:150px; height:150px; opacity:.38; }
 .star { position:absolute; border-radius:50%; background:#f0d9a0; box-shadow:0 0 5px rgba(240,217,160,.9); }
 .moon {
-  position:absolute; top:96px; left:96px; width:86px; height:86px; border-radius:50%;
+  position:absolute; top:88px; left:86px; width:80px; height:80px; border-radius:50%;
   background:radial-gradient(circle at 36% 34%, #fbebc4, #e3c17a 68%, #c49b4e);
-  box-shadow:0 0 34px rgba(227,193,122,.4), inset -11px -9px 0 -3px rgba(40,12,14,.9);
+  box-shadow:0 0 34px rgba(227,193,122,.4), inset -10px -8px 0 -3px rgba(40,12,14,.9);
 }
 .veil { position:absolute; inset:0; background:radial-gradient(58% 46% at 50% 50%, rgba(38,8,9,.64), rgba(38,8,9,.2) 58%, transparent 76%); }
 .frame {
-  position:relative; z-index:3; height:100%; border:2px solid var(--gold-2); border-radius:4px; padding:44px 50px 36px;
+  position:relative; z-index:3; height:100%; border:2px solid var(--gold-2); border-radius:4px; padding:32px 46px 26px;
   display:flex; flex-direction:column;
   box-shadow: inset 0 0 0 6px rgba(68,15,18,1), inset 0 0 0 7px rgba(200,154,69,.55);
 }
@@ -394,69 +387,69 @@ html, body {
 .corner.bl { bottom:14px; left:14px; border-right:none; border-top:none; }
 .corner.br { bottom:14px; right:14px; border-left:none; border-top:none; }
 
-.eyebrow { text-align:center; font-size:13px; letter-spacing:.5em; text-transform:uppercase; color:var(--muted); }
-.date { text-align:center; margin-top:14px; font-size:30px; letter-spacing:.3em; color:var(--cream); font-weight:600; }
+.eyebrow { text-align:center; font-size:15px; letter-spacing:.44em; text-transform:uppercase; color:var(--muted); }
+.date { text-align:center; margin-top:12px; font-size:31px; letter-spacing:.3em; color:var(--cream); font-weight:600; }
 .title {
-  text-align:center; margin-top:6px; font-family:'Playfair Display',serif; font-weight:700; font-size:92px; line-height:1;
+  text-align:center; margin-top:4px; font-family:'Playfair Display',serif; font-weight:700; font-size:96px; line-height:1;
   color:var(--gold-lt); text-shadow:0 2px 0 rgba(0,0,0,.28), 0 0 36px rgba(212,164,76,.4);
 }
-.bil, .subtitle { text-align:center; margin-top:14px; font-size:15px; letter-spacing:.3em; text-transform:uppercase; color:var(--muted); }
-.orn { display:flex; align-items:center; justify-content:center; gap:12px; margin:22px 0 4px; color:var(--gold); }
+.bil, .subtitle { text-align:center; margin-top:12px; font-size:15px; letter-spacing:.3em; text-transform:uppercase; color:var(--muted); }
+.orn { display:flex; align-items:center; justify-content:center; gap:12px; margin:14px 0 2px; color:var(--gold); }
 .orn:before, .orn:after { content:""; height:1px; width:140px; background:linear-gradient(90deg,transparent,#d4a44c); }
 .orn:after { background:linear-gradient(90deg,#d4a44c,transparent); }
-.orn svg { width:26px; height:26px; }
+.orn svg { width:24px; height:24px; }
 
-.ov { text-align:center; margin-top:12px; }
-.ov h2 { font-family:'Playfair Display',serif; font-weight:600; font-size:19px; letter-spacing:.3em; text-transform:uppercase; color:#e6c176; }
-.ov p { margin:12px auto 0; max-width:92%; font-size:29px; line-height:1.5; color:#efdfc0; }
+.ov { text-align:center; margin-top:8px; }
+.ov h2 { font-family:'Playfair Display',serif; font-weight:600; font-size:18px; letter-spacing:.3em; text-transform:uppercase; color:#e6c176; }
+.ov p { margin:12px auto 0; max-width:95%; font-size:30px; line-height:1.42; color:#efdfc0; }
 .chip {
-  display:inline-block; margin-top:14px; padding:6px 22px; border:1px solid var(--gold-2); border-radius:999px;
+  display:inline-block; margin-top:10px; padding:6px 20px; border:1px solid var(--gold-2); border-radius:999px;
   font-size:15px; letter-spacing:.2em; text-transform:uppercase; color:var(--gold-lt); background:rgba(40,8,9,.5);
 }
 
-.seals { margin-top:24px; display:grid; grid-template-columns:1fr 1px 1fr; gap:24px; align-items:center; }
+.seals { margin-top:16px; display:grid; grid-template-columns:1fr 1px 1fr; gap:20px; align-items:center; }
 .sdiv { align-self:stretch; width:1px; background:linear-gradient(180deg,transparent,rgba(212,164,76,.5),transparent); }
 .scol { text-align:center; }
-.scol h3 { font-size:15px; letter-spacing:.26em; text-transform:uppercase; color:var(--muted); margin-bottom:14px; }
-.srow { display:flex; justify-content:center; gap:20px; flex-wrap:wrap; }
-.seal { display:flex; flex-direction:column; align-items:center; gap:8px; }
+.scol h3 { font-size:15px; letter-spacing:.26em; text-transform:uppercase; color:var(--muted); margin-bottom:10px; }
+.srow { display:flex; justify-content:center; gap:18px; flex-wrap:wrap; }
+.seal { display:flex; flex-direction:column; align-items:center; gap:6px; }
 .seal-em {
-  width:72px; height:72px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:38px;
+  width:66px; height:66px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:35px;
   background:radial-gradient(circle at 50% 32%,#7a2a2e,#4a1518); border:1.5px solid #d4a44c;
   box-shadow:0 0 20px rgba(212,164,76,.25), inset 0 0 0 4px rgba(74,21,24,.9), inset 0 0 0 5px rgba(212,164,76,.4);
 }
 .seal-nm { font-family:'Playfair Display',serif; font-size:21px; color:var(--cream); }
 .seal-empty { color:var(--muted); font-size:22px; }
 
-.panels { margin-top:24px; display:grid; grid-template-columns:1fr 1fr; gap:18px; }
-.panel { border:1px solid rgba(212,164,76,.55); border-radius:8px; padding:20px 22px; background:linear-gradient(180deg,rgba(122,42,46,.55),rgba(50,12,14,.6)); }
+.panels { margin-top:16px; display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.panel { border:1px solid rgba(212,164,76,.55); border-radius:8px; padding:16px 20px; background:linear-gradient(180deg,rgba(122,42,46,.55),rgba(50,12,14,.6)); }
 .ptop { display:flex; align-items:center; gap:12px; }
-.ico { width:28px; height:28px; color:var(--gold-lt); display:inline-flex; }
+.ico { width:26px; height:26px; color:var(--gold-lt); display:inline-flex; }
 .ico svg { width:100%; height:100%; }
-.pname { font-family:'Playfair Display',serif; font-size:25px; color:var(--gold-lt); }
-.st { margin-left:auto; font-size:12px; letter-spacing:.1em; text-transform:uppercase; padding:4px 12px; border-radius:999px; border:1px solid currentColor; white-space:nowrap; }
+.pname { font-family:'Playfair Display',serif; font-size:26px; color:var(--gold-lt); }
+.st { margin-left:auto; font-size:17px; letter-spacing:.08em; text-transform:uppercase; padding:6px 15px; border-radius:999px; border:1.5px solid currentColor; white-space:nowrap; }
 .st.ok { color:var(--ok); } .st.warn { color:var(--warn); }
-.ptext { margin:12px 0 0; font-size:22px; line-height:1.5; color:var(--cream-2); }
+.ptext { margin:10px 0 0; font-size:23px; line-height:1.45; color:var(--cream-2); }
 
-.lists { margin-top:24px; display:grid; grid-template-columns:1fr 1fr; gap:28px; }
-.lhead { display:flex; align-items:center; gap:10px; padding-bottom:10px; border-bottom:1px solid rgba(212,164,76,.4); font-size:17px; letter-spacing:.16em; text-transform:uppercase; }
+.lists { margin-top:16px; display:grid; grid-template-columns:1fr 1fr; gap:26px; }
+.lhead { display:flex; align-items:center; gap:10px; padding-bottom:8px; border-bottom:1px solid rgba(212,164,76,.4); font-size:18px; letter-spacing:.16em; text-transform:uppercase; }
 .lhead svg { width:18px; height:18px; }
 .lhead.g { color:var(--ok); } .lhead.b { color:var(--warn); }
 ul { list-style:none; padding:0; margin:0; }
-li { position:relative; padding-left:24px; font-size:21px; line-height:1.4; color:var(--cream-2); margin-top:12px; }
+li { position:relative; padding-left:25px; font-size:22px; line-height:1.38; color:var(--cream-2); margin-top:10px; }
 li:before { content:""; position:absolute; left:2px; top:8px; width:6px; height:6px; transform:rotate(45deg); }
 li.g:before { background:var(--ok); } li.b:before { background:var(--warn); }
 
-.foot { margin-top:auto; padding-top:20px; text-align:center; color:var(--muted); font-size:13px; letter-spacing:.24em; text-transform:uppercase; border-top:1px solid rgba(212,164,76,.3); }
+.foot { margin-top:auto; padding-top:14px; text-align:center; color:var(--muted); font-size:13px; letter-spacing:.24em; text-transform:uppercase; border-top:1px solid rgba(212,164,76,.3); }
 """
 
 _ZODIAC_CSS = """
 .lead {
-  margin:16px auto 0; max-width:94%; text-align:center; font-size:20px; line-height:1.5; color:#e4d3ab;
+  margin:10px auto 0; max-width:95%; text-align:center; font-size:21px; line-height:1.4; color:#e4d3ab;
   display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
 }
-.signs { margin-top:16px; flex:1; display:grid; grid-template-columns:1fr 1fr; align-content:space-between; column-gap:30px; row-gap:0; }
-.sign { display:flex; gap:14px; padding:15px 0; border-bottom:1px solid rgba(212,164,76,.28); }
+.signs { margin-top:10px; flex:1; display:grid; grid-template-columns:1fr 1fr; align-content:space-between; column-gap:28px; row-gap:0; }
+.sign { display:flex; gap:12px; padding:11px 0; border-bottom:1px solid rgba(212,164,76,.28); }
 .sign-glyph {
   flex:none; width:58px; height:58px; border-radius:50%; display:flex; align-items:center; justify-content:center;
   font-size:30px; color:var(--gold-lt); background:radial-gradient(circle at 50% 32%,#7a2a2e,#4a1518);
@@ -467,35 +460,35 @@ _ZODIAC_CSS = """
 .sign-name { font-family:'Playfair Display',serif; font-size:23px; font-weight:600; color:var(--cream); }
 .sign-range { font-size:13px; font-weight:600; letter-spacing:.04em; color:var(--muted); white-space:nowrap; }
 .sign-text {
-  margin:6px 0 0; font-size:17px; line-height:1.4; color:#e4d3ab;
+  margin:5px 0 0; font-size:17px; line-height:1.36; color:#e4d3ab;
   display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;
 }
 """
 
 _WEEKLY_CSS = """
-.week { margin-top:20px; border:1px solid rgba(212,164,76,.45); border-radius:10px; overflow:hidden; background:linear-gradient(180deg, rgba(122,42,46,.42), rgba(50,12,14,.55)); }
+.week { margin-top:14px; border:1px solid rgba(212,164,76,.45); border-radius:10px; overflow:hidden; background:linear-gradient(180deg, rgba(122,42,46,.42), rgba(50,12,14,.55)); }
 .week-head, .week-row { display:grid; grid-template-columns:190px 1fr 1fr 1fr; align-items:center; }
-.week-head { padding:14px 22px; background:rgba(120,40,44,.5); border-bottom:1px solid rgba(212,164,76,.45); }
-.week-head .col { display:flex; align-items:center; justify-content:center; gap:8px; font-size:14px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); }
+.week-head { padding:11px 20px; background:rgba(120,40,44,.5); border-bottom:1px solid rgba(212,164,76,.45); }
+.week-head .col { display:flex; align-items:center; justify-content:center; gap:8px; font-size:15px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); }
 .week-head .col.day { justify-content:flex-start; }
 .week-head .col svg { width:16px; height:16px; }
-.week-row { padding:13px 22px; min-height:82px; border-bottom:1px solid rgba(212,164,76,.22); }
+.week-row { padding:10px 20px; min-height:70px; border-bottom:1px solid rgba(212,164,76,.22); }
 .week-row:last-child { border-bottom:none; }
 .week-row.alt { background:rgba(255,255,255,.03); }
 .cell-day { display:flex; flex-direction:column; gap:2px; }
-.weekday { font-family:'Playfair Display',serif; font-size:26px; font-weight:600; line-height:1; color:var(--cream); }
-.weekdate { font-size:14px; font-weight:600; letter-spacing:.06em; color:var(--muted); }
+.weekday { font-family:'Playfair Display',serif; font-size:27px; font-weight:600; line-height:1; color:var(--cream); }
+.weekdate { font-size:15px; font-weight:600; letter-spacing:.06em; color:var(--muted); }
 .cell-stat { display:flex; flex-direction:column; gap:4px; padding:0 14px; color:var(--muted); }
-.stat-label { display:flex; align-items:center; gap:8px; font-size:18px; font-weight:700; line-height:1.1; }
+.stat-label { display:flex; align-items:center; gap:8px; font-size:22px; font-weight:700; line-height:1.1; }
 .stat-label:before { content:""; width:8px; height:8px; border-radius:50%; background:currentColor; flex:none; }
-.stat-brief { font-size:14px; line-height:1.3; color:#cbb98e; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; word-break:break-word; }
+.stat-brief { font-size:15px; line-height:1.3; color:#cbb98e; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; word-break:break-word; }
 .status-good { color:var(--ok); } .status-warn { color:#f0c56a; } .status-bad { color:var(--warn); } .status-travel { color:var(--cream); }
-.summary { margin-top:20px; display:grid; grid-template-columns:repeat(3,1fr); gap:16px; align-items:stretch; }
-.summary-card { padding:16px; border:1px solid rgba(212,164,76,.4); border-radius:10px; text-align:center; background:linear-gradient(180deg, rgba(122,42,46,.42), rgba(50,12,14,.55)); display:flex; flex-direction:column; justify-content:flex-start; }
+.summary { margin-top:14px; display:grid; grid-template-columns:repeat(3,1fr); gap:16px; align-items:stretch; }
+.summary-card { padding:13px; border:1px solid rgba(212,164,76,.4); border-radius:10px; text-align:center; background:linear-gradient(180deg, rgba(122,42,46,.42), rgba(50,12,14,.55)); display:flex; flex-direction:column; justify-content:flex-start; }
 .summary-icon { width:28px; height:28px; margin:0 auto 8px; color:var(--gold-lt); }
 .summary-icon svg { width:100%; height:100%; }
 .summary-label { font-size:13px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); }
-.summary-day { margin-top:8px; font-family:'Playfair Display',serif; font-size:22px; font-weight:600; color:var(--gold-lt); line-height:1.25; min-height:2.5em; }
+.summary-day { margin-top:8px; font-family:'Playfair Display',serif; font-size:23px; font-weight:600; color:var(--gold-lt); line-height:1.25; min-height:2.5em; }
 .summary-date { margin-top:4px; font-size:14px; color:var(--muted); }
 """
 
@@ -783,20 +776,9 @@ def _summary_card_html(icon_svg: str, label: str, days: list[tuple[str, str]]) -
 
 
 def build_weekly_horoscope_image_caption(post_text: str) -> str:
-    lines = [line.strip() for line in post_text.splitlines() if line.strip()]
-    headline = next(
-        (line for line in lines if line.startswith("7 хоногийн") or "хоногийн" in line.lower()),
-        lines[0] if lines else "7 хоногийн зурхай",
-    )
-    hashtags = [line for line in lines if line.startswith("#")]
-    caption_lines = [
-        headline,
-        "Зурган дээр: 7 өдрийн үс засуулах, аян зам, үйл хийхийн чиглэл нэг харцаар.",
-    ]
-    if hashtags:
-        caption_lines.append(hashtags[-1])
-    caption_lines.append("Долоо хоногийн зурхайг өдөр бүр шинэчлэн авах бол манай page-ийг дагаарай.")
-    return "\n".join(caption_lines).strip()
+    body = post_text.strip()
+    follow = "Долоо хоногийн зурхайг өдөр бүр шинэчлэн авах бол манай page-ийг дагаарай."
+    return f"{body}\n\n{follow}".strip()
 
 
 def _build_weekly_horoscope_html(post_text: str, source_context: str | None) -> str:
@@ -955,17 +937,9 @@ def _zodiac_date_label(post_text: str, source_context: str | None) -> str:
 
 
 def build_zodiac_horoscope_image_caption(post_text: str) -> str:
-    lines = [line.strip() for line in post_text.splitlines() if line.strip()]
-    date_label = _zodiac_date_label(post_text, None)
-    hashtags = [line for line in lines if line.startswith("#")]
-    caption_lines = [
-        f"12 ордын өдрийн зурхай · {date_label}",
-        "Зурган дээр: 12 ордын өнөөдрийн товч зурхай нэг харцаар.",
-    ]
-    if hashtags:
-        caption_lines.append(hashtags[-1])
-    caption_lines.append("Орд бүрийн өдрийн зурхайг авах бол манай page-ийг дагаарай.")
-    return "\n".join(line for line in caption_lines if line).strip()
+    body = post_text.strip()
+    follow = "Орд бүрийн өдрийн зурхайг авах бол манай page-ийг дагаарай."
+    return f"{body}\n\n{follow}".strip()
 
 
 def _build_zodiac_horoscope_html(post_text: str, source_context: str | None) -> str:
